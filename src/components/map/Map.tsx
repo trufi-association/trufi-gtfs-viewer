@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react'
 import MapGL, { NavigationControl, ScaleControl, Popup, MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useGtfsStore } from '../../store/gtfsStore'
@@ -9,6 +9,8 @@ import ShapesLayer from './ShapesLayer'
 import VehiclesLayer from './VehiclesLayer'
 import { getVehiclePositions } from '../../services/gtfs/vehicleInterpolator'
 import type { MapLayerMouseEvent } from 'maplibre-gl'
+import type { FeatureCollection, Point } from 'geojson'
+import type { StopProperties } from '../../services/gtfs/stopsToGeoJson'
 
 const INITIAL_VIEW_STATE = {
   longitude: 0,
@@ -28,6 +30,8 @@ interface PopupInfo {
 export function Map() {
   const mapRef = useRef<MapRef>(null)
   const [popupInfo, setPopupInfo] = useState<PopupInfo | null>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const hasFittedBounds = useRef(false)
 
   const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes } =
     useGtfsStore()
@@ -36,13 +40,68 @@ export function Map() {
   const { currentTimeSeconds, isPlaying, vehiclePositions, setVehiclePositions } =
     useTimetableStore()
 
-  // Fit bounds when data loads
+  // Get stop IDs that belong to selected routes
+  const selectedStopIds = useMemo(() => {
+    if (selectedRouteIds.size === 0) return null // null means show all
+
+    // Get trip IDs for selected routes
+    const selectedTripIds = new Set(
+      trips
+        .filter((t) => selectedRouteIds.has(t.route_id))
+        .map((t) => t.trip_id)
+    )
+
+    // Get stop IDs from stop_times for those trips
+    const stopIds = new Set<string>()
+    for (const st of stopTimes) {
+      if (selectedTripIds.has(st.trip_id)) {
+        stopIds.add(st.stop_id)
+      }
+    }
+
+    return stopIds
+  }, [selectedRouteIds, trips, stopTimes])
+
+  // Filter stops GeoJSON based on selected routes
+  const filteredStopsGeoJson = useMemo((): FeatureCollection<Point, StopProperties> | null => {
+    if (!stopsGeoJson) return null
+    if (!selectedStopIds) return stopsGeoJson // Show all if no route selected
+
+    return {
+      ...stopsGeoJson,
+      features: stopsGeoJson.features.filter((f) =>
+        selectedStopIds.has(f.properties.stop_id)
+      ),
+    }
+  }, [stopsGeoJson, selectedStopIds])
+
+  // Handle map load
+  const handleMapLoad = useCallback(() => {
+    setMapLoaded(true)
+  }, [])
+
+  // Fit bounds when map loads and data is available
+  useEffect(() => {
+    if (bounds && mapLoaded && mapRef.current && !hasFittedBounds.current) {
+      hasFittedBounds.current = true
+      setTimeout(() => {
+        mapRef.current?.fitBounds(bounds, {
+          padding: 50,
+          duration: 1000,
+        })
+      }, 100)
+    }
+  }, [bounds, mapLoaded])
+
+  // Fit bounds when new data is loaded
   useEffect(() => {
     if (bounds && mapRef.current) {
+      hasFittedBounds.current = false
       mapRef.current.fitBounds(bounds, {
         padding: 50,
         duration: 1000,
       })
+      hasFittedBounds.current = true
     }
   }, [bounds])
 
@@ -135,6 +194,7 @@ export function Map() {
       style={{ width: '100%', height: '100%' }}
       interactiveLayerIds={['stops-unclustered', 'stops-clusters', 'vehicles-points']}
       onClick={handleClick}
+      onLoad={handleMapLoad}
     >
       <NavigationControl position="top-right" />
       <ScaleControl position="bottom-right" />
@@ -148,8 +208,8 @@ export function Map() {
         />
       )}
 
-      {stopsGeoJson && (
-        <StopsLayer data={stopsGeoJson} visible={layerVisibility.stops} />
+      {filteredStopsGeoJson && (
+        <StopsLayer data={filteredStopsGeoJson} visible={layerVisibility.stops} />
       )}
 
       <VehiclesLayer
