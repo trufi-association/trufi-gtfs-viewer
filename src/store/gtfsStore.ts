@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import type { FeatureCollection, Point, LineString } from 'geojson'
-import type { GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsAgency } from '../types/gtfs'
+import type { GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsFrequency, GtfsAgency } from '../types/gtfs'
 import type { StopProperties } from '../services/gtfs/stopsToGeoJson'
 import type { ShapeProperties } from '../services/gtfs/shapesToGeoJson'
 import { stopsToGeoJson, calculateBounds } from '../services/gtfs/stopsToGeoJson'
 import { shapesToGeoJson } from '../services/gtfs/shapesToGeoJson'
 import { parseGtfsFile } from '../services/gtfs/parser'
-import { saveGtfsData, loadGtfsData, clearGtfsData } from '../services/storage/indexedDb'
+import { saveGtfsFile, loadGtfsFile, clearGtfsData } from '../services/storage/indexedDb'
 
 interface GtfsState {
   // Raw parsed data
@@ -16,6 +16,7 @@ interface GtfsState {
   shapes: GtfsShape[]
   stopTimes: GtfsStopTime[]
   calendar: GtfsCalendar[]
+  frequencies: GtfsFrequency[]
   agency: GtfsAgency[]
 
   // GeoJSON for map rendering
@@ -53,6 +54,7 @@ export const useGtfsStore = create<GtfsState>((set) => ({
   shapes: [],
   stopTimes: [],
   calendar: [],
+  frequencies: [],
   agency: [],
   stopsGeoJson: null,
   shapesGeoJson: null,
@@ -71,12 +73,12 @@ export const useGtfsStore = create<GtfsState>((set) => ({
         set({ loadingProgress: progress, loadingMessage: message })
       })
 
-      // Save to IndexedDB
+      // Save original ZIP file to IndexedDB
       set({ loadingMessage: 'Saving to local storage...' })
-      await saveGtfsData(data)
+      await saveGtfsFile(file)
 
-      // Convert to GeoJSON
-      const stopsGeoJson = stopsToGeoJson(data.stops)
+      // Convert to GeoJSON (pass stopTimes for origin/destination detection)
+      const stopsGeoJson = stopsToGeoJson(data.stops, data.stopTimes)
       const shapesGeoJson = shapesToGeoJson(data.shapes, data.routes, data.trips)
       const bounds = calculateBounds(data.stops)
 
@@ -87,6 +89,7 @@ export const useGtfsStore = create<GtfsState>((set) => ({
         shapes: data.shapes,
         stopTimes: data.stopTimes,
         calendar: data.calendar,
+        frequencies: data.frequencies,
         agency: data.agency,
         stopsGeoJson,
         shapesGeoJson,
@@ -114,35 +117,45 @@ export const useGtfsStore = create<GtfsState>((set) => ({
     set({ isLoading: true, loadingProgress: 0, loadingMessage: 'Loading from local storage...', error: null })
 
     try {
-      const data = await loadGtfsData()
-      if (!data || !data.stops || data.stops.length === 0) {
+      const file = await loadGtfsFile()
+      if (!file) {
         set({ isLoading: false, loadingProgress: 0, loadingMessage: '' })
         return false
       }
 
-      // Convert to GeoJSON
-      set({ loadingProgress: 50, loadingMessage: 'Processing data...' })
-      const stopsGeoJson = stopsToGeoJson(data.stops)
-      const shapesGeoJson = shapesToGeoJson(data.shapes || [], data.routes || [], data.trips || [])
+      // Parse the GTFS file (this will re-analyze with current code)
+      const data = await parseGtfsFile(file, (progress, message) => {
+        set({ loadingProgress: progress, loadingMessage: message })
+      })
+
+      if (!data.stops || data.stops.length === 0) {
+        set({ isLoading: false, loadingProgress: 0, loadingMessage: '' })
+        return false
+      }
+
+      // Convert to GeoJSON (pass stopTimes for origin/destination detection)
+      const stopsGeoJson = stopsToGeoJson(data.stops, data.stopTimes)
+      const shapesGeoJson = shapesToGeoJson(data.shapes, data.routes, data.trips)
       const bounds = calculateBounds(data.stops)
 
       set({
         stops: data.stops,
-        routes: data.routes || [],
-        trips: data.trips || [],
-        shapes: data.shapes || [],
-        stopTimes: data.stopTimes || [],
-        calendar: data.calendar || [],
-        agency: data.agency || [],
+        routes: data.routes,
+        trips: data.trips,
+        shapes: data.shapes,
+        stopTimes: data.stopTimes,
+        calendar: data.calendar,
+        frequencies: data.frequencies,
+        agency: data.agency,
         stopsGeoJson,
         shapesGeoJson,
         bounds,
         feedStats: {
           stopCount: data.stops.length,
-          routeCount: (data.routes || []).length,
-          tripCount: (data.trips || []).length,
-          shapeCount: new Set((data.shapes || []).map((s) => s.shape_id)).size,
-          agencyName: data.agency?.[0]?.agency_name,
+          routeCount: data.routes.length,
+          tripCount: data.trips.length,
+          shapeCount: new Set(data.shapes.map((s) => s.shape_id)).size,
+          agencyName: data.agency[0]?.agency_name,
         },
         isLoading: false,
         loadingProgress: 100,
@@ -167,6 +180,7 @@ export const useGtfsStore = create<GtfsState>((set) => ({
       shapes: [],
       stopTimes: [],
       calendar: [],
+      frequencies: [],
       agency: [],
       stopsGeoJson: null,
       shapesGeoJson: null,

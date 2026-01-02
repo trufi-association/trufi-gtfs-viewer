@@ -33,7 +33,7 @@ export function Map() {
   const [mapLoaded, setMapLoaded] = useState(false)
   const hasFittedBounds = useRef(false)
 
-  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes } =
+  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies } =
     useGtfsStore()
   const { layerVisibility, selectedRouteIds, selectedRouteTypes, setSelectedStop } =
     useUiStore()
@@ -75,6 +75,12 @@ export function Map() {
     }
   }, [stopsGeoJson, selectedStopIds])
 
+  // Filter vehicle positions based on selected routes
+  const filteredVehiclePositions = useMemo(() => {
+    if (selectedRouteIds.size === 0) return vehiclePositions // Show all if no route selected
+    return vehiclePositions.filter((v) => selectedRouteIds.has(v.routeId))
+  }, [vehiclePositions, selectedRouteIds])
+
   // Handle map load
   const handleMapLoad = useCallback(() => {
     setMapLoaded(true)
@@ -108,16 +114,19 @@ export function Map() {
   // Update vehicle positions when time changes
   useEffect(() => {
     if (stopTimes.length > 0 && trips.length > 0 && stops.length > 0) {
+      console.log('Calculating vehicle positions for time:', currentTimeSeconds, 'with', stopTimes.length, 'stop times and', frequencies.length, 'frequencies')
       const positions = getVehiclePositions(
         stopTimes,
         trips,
         routes,
         stops,
+        frequencies,
         currentTimeSeconds
       )
+      console.log('Found', positions.length, 'active vehicles')
       setVehiclePositions(positions)
     }
-  }, [currentTimeSeconds, stopTimes, trips, routes, stops, setVehiclePositions])
+  }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, setVehiclePositions])
 
   // Animation loop for playback
   useEffect(() => {
@@ -129,7 +138,8 @@ export function Map() {
     const animate = (currentTime: number) => {
       const delta = (currentTime - lastTime) / 1000 // Convert to seconds
       lastTime = currentTime
-      useTimetableStore.getState().incrementTime(delta * 60) // 1 real second = 1 simulated minute
+      // incrementTime already multiplies by playbackSpeed internally
+      useTimetableStore.getState().incrementTime(delta) // 1 real second = 1 simulated second at 1x speed
       animationId = requestAnimationFrame(animate)
     }
 
@@ -149,7 +159,10 @@ export function Map() {
       const feature = features[0]
       const { lng, lat } = event.lngLat
 
-      if (feature.layer.id === 'stops-unclustered') {
+      // Handle clicks on any stop layer (intermediate, origin, destination)
+      if (feature.layer.id === 'stops-unclustered' ||
+          feature.layer.id === 'stops-origin' ||
+          feature.layer.id === 'stops-destination') {
         const props = feature.properties as Record<string, unknown>
         setPopupInfo({
           longitude: lng,
@@ -192,7 +205,7 @@ export function Map() {
       initialViewState={INITIAL_VIEW_STATE}
       mapStyle={MAP_STYLE}
       style={{ width: '100%', height: '100%' }}
-      interactiveLayerIds={['stops-unclustered', 'stops-clusters', 'vehicles-points']}
+      interactiveLayerIds={['stops-unclustered', 'stops-origin', 'stops-destination', 'stops-clusters', 'vehicles-points']}
       onClick={handleClick}
       onLoad={handleMapLoad}
     >
@@ -213,7 +226,7 @@ export function Map() {
       )}
 
       <VehiclesLayer
-        positions={vehiclePositions}
+        positions={filteredVehiclePositions}
         visible={layerVisibility.vehicles}
       />
 

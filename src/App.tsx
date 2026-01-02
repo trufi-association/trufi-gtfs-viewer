@@ -3,14 +3,14 @@ import Layout from './components/Layout'
 import { useGtfsStore } from './store/gtfsStore'
 
 function App() {
-  const { loadFromStorage, feedStats } = useGtfsStore()
+  const { feedStats, loadFromStorage } = useGtfsStore()
 
   // Load GTFS data from IndexedDB on startup
   useEffect(() => {
     if (!feedStats) {
       loadFromStorage()
     }
-  }, [])
+  }, [feedStats, loadFromStorage])
 
   return <Layout />
 }

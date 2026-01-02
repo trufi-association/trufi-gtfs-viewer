@@ -9,6 +9,7 @@ export interface GtfsFiles {
   agency?: string
   calendar?: string
   calendarDates?: string
+  frequencies?: string
   feedInfo?: string
 }
 
@@ -21,6 +22,7 @@ const FILE_MAPPING: Record<string, keyof GtfsFiles> = {
   'agency.txt': 'agency',
   'calendar.txt': 'calendar',
   'calendar_dates.txt': 'calendarDates',
+  'frequencies.txt': 'frequencies',
   'feed_info.txt': 'feedInfo',
 }
 

@@ -1,8 +1,6 @@
-import type { ParsedGtfsData } from '../../types/gtfs'
-
 const DB_NAME = 'gtfs-viewer'
-const DB_VERSION = 1
-const STORE_NAME = 'gtfs-data'
+const DB_VERSION = 2
+const STORE_NAME = 'gtfs-file'
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -13,6 +11,10 @@ function openDatabase(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
+      // Delete old store if exists
+      if (db.objectStoreNames.contains('gtfs-data')) {
+        db.deleteObjectStore('gtfs-data')
+      }
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME)
       }
@@ -20,22 +22,17 @@ function openDatabase(): Promise<IDBDatabase> {
   })
 }
 
-export async function saveGtfsData(data: ParsedGtfsData): Promise<void> {
+export async function saveGtfsFile(file: File): Promise<void> {
   const db = await openDatabase()
+  const arrayBuffer = await file.arrayBuffer()
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite')
     const store = transaction.objectStore(STORE_NAME)
 
-    // Save each data type separately to avoid size limits
-    store.put(data.stops, 'stops')
-    store.put(data.routes, 'routes')
-    store.put(data.trips, 'trips')
-    store.put(data.shapes, 'shapes')
-    store.put(data.stopTimes, 'stopTimes')
-    store.put(data.calendar, 'calendar')
-    store.put(data.calendarDates, 'calendarDates')
-    store.put(data.agency, 'agency')
-    store.put(data.feedInfo, 'feedInfo')
+    store.put(arrayBuffer, 'fileData')
+    store.put(file.name, 'fileName')
+    store.put(file.type || 'application/zip', 'fileType')
     store.put(Date.now(), 'savedAt')
 
     transaction.oncomplete = () => {
@@ -49,46 +46,51 @@ export async function saveGtfsData(data: ParsedGtfsData): Promise<void> {
   })
 }
 
-export async function loadGtfsData(): Promise<ParsedGtfsData | null> {
+export async function loadGtfsFile(): Promise<File | null> {
   try {
     const db = await openDatabase()
     return new Promise((resolve) => {
       const transaction = db.transaction(STORE_NAME, 'readonly')
       const store = transaction.objectStore(STORE_NAME)
 
-      const data: Partial<ParsedGtfsData> = {}
-      const keys = ['stops', 'routes', 'trips', 'shapes', 'stopTimes', 'calendar', 'calendarDates', 'agency', 'feedInfo']
-
+      let fileData: ArrayBuffer | undefined
+      let fileName: string | undefined
+      let fileType: string | undefined
       let completed = 0
-      let hasData = false
 
-      keys.forEach((key) => {
-        const request = store.get(key)
-        request.onsuccess = () => {
-          if (request.result !== undefined) {
-            (data as Record<string, unknown>)[key] = request.result
-            if (request.result && (Array.isArray(request.result) ? request.result.length > 0 : true)) {
-              hasData = true
-            }
-          }
-          completed++
-          if (completed === keys.length) {
-            db.close()
-            if (hasData) {
-              resolve(data as ParsedGtfsData)
-            } else {
-              resolve(null)
-            }
-          }
-        }
-        request.onerror = () => {
-          completed++
-          if (completed === keys.length) {
-            db.close()
+      const checkComplete = () => {
+        completed++
+        if (completed === 3) {
+          db.close()
+          if (fileData && fileName) {
+            const file = new File([fileData], fileName, { type: fileType || 'application/zip' })
+            resolve(file)
+          } else {
             resolve(null)
           }
         }
-      })
+      }
+
+      const dataRequest = store.get('fileData')
+      dataRequest.onsuccess = () => {
+        fileData = dataRequest.result
+        checkComplete()
+      }
+      dataRequest.onerror = checkComplete
+
+      const nameRequest = store.get('fileName')
+      nameRequest.onsuccess = () => {
+        fileName = nameRequest.result
+        checkComplete()
+      }
+      nameRequest.onerror = checkComplete
+
+      const typeRequest = store.get('fileType')
+      typeRequest.onsuccess = () => {
+        fileType = typeRequest.result
+        checkComplete()
+      }
+      typeRequest.onerror = checkComplete
     })
   } catch {
     return null

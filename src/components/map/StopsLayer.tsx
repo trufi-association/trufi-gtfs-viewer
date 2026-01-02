@@ -8,14 +8,39 @@ interface StopsLayerProps {
   visible?: boolean
 }
 
-const unclusteredPointStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+// Regular intermediate stops - red circles
+const intermediateStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
   type: 'circle',
-  filter: ['!', ['has', 'point_count']],
+  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'intermediate']],
   paint: {
     'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 12, 5, 16, 8],
     'circle-color': '#e74c3c',
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 1.5,
+  },
+}
+
+// Origin stops - green circles (larger)
+const originStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+  type: 'circle',
+  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'origin']],
+  paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8, 16, 12],
+    'circle-color': '#27ae60',
+    'circle-stroke-color': '#ffffff',
+    'circle-stroke-width': 2,
+  },
+}
+
+// Destination stops - blue circles (larger)
+const destinationStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+  type: 'circle',
+  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'destination']],
+  paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8, 16, 12],
+    'circle-color': '#3498db',
+    'circle-stroke-color': '#ffffff',
+    'circle-stroke-width': 2,
   },
 }
 
@@ -66,8 +91,14 @@ export function StopsLayer({ data, visible = true }: StopsLayerProps) {
         }}
       />
 
-      {/* Individual stops */}
-      <Layer id="stops-unclustered" {...unclusteredPointStyle} />
+      {/* Intermediate stops - red (rendered first, below terminals) */}
+      <Layer id="stops-unclustered" {...intermediateStopStyle} />
+
+      {/* Origin stops - green */}
+      <Layer id="stops-origin" {...originStopStyle} />
+
+      {/* Destination stops - blue */}
+      <Layer id="stops-destination" {...destinationStopStyle} />
     </Source>
   )
 }

@@ -81,6 +81,14 @@ export interface GtfsCalendarDate {
   exception_type: number
 }
 
+export interface GtfsFrequency {
+  trip_id: string
+  start_time: string
+  end_time: string
+  headway_secs: number
+  exact_times?: number
+}
+
 export interface GtfsAgency {
   agency_id?: string
   agency_name: string
@@ -126,6 +134,7 @@ export interface ParsedGtfsData {
   stopTimes: GtfsStopTime[]
   calendar: GtfsCalendar[]
   calendarDates: GtfsCalendarDate[]
+  frequencies: GtfsFrequency[]
   agency: GtfsAgency[]
   feedInfo: GtfsFeedInfo | null
 }

@@ -1,4 +1,4 @@
-import type { ParsedGtfsData, GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsCalendarDate, GtfsAgency, GtfsFeedInfo } from '../../types/gtfs'
+import type { ParsedGtfsData, GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsCalendarDate, GtfsFrequency, GtfsAgency, GtfsFeedInfo } from '../../types/gtfs'
 import { extractGtfsZip } from './zipHandler'
 import { parseGtfsCsv } from './csvParser'
 
@@ -19,6 +19,7 @@ export async function parseGtfsFile(
     stopTimes: [],
     calendar: [],
     calendarDates: [],
+    frequencies: [],
     agency: [],
     feedInfo: null,
   }
@@ -58,7 +59,12 @@ export async function parseGtfsFile(
     result.calendarDates = parseGtfsCsv<GtfsCalendarDate>(files.calendarDates)
   }
 
-  onProgress?.(85, 'Parsing agency...')
+  onProgress?.(84, 'Parsing frequencies...')
+  if (files.frequencies) {
+    result.frequencies = parseGtfsCsv<GtfsFrequency>(files.frequencies)
+  }
+
+  onProgress?.(86, 'Parsing agency...')
   if (files.agency) {
     result.agency = parseGtfsCsv<GtfsAgency>(files.agency)
   }
