@@ -1,10 +1,9 @@
-import { useEffect } from 'react'
 import { useTimetableStore } from '../../store/timetableStore'
 import { useGtfsStore } from '../../store/gtfsStore'
-import { formatTime, parseGtfsTime } from '../../services/gtfs/vehicleInterpolator'
+import { formatTime } from '../../services/gtfs/vehicleInterpolator'
 
 export function TimeSlider() {
-  const { feedStats, stopTimes } = useGtfsStore()
+  const { feedStats } = useGtfsStore()
   const {
     currentTimeSeconds,
     isPlaying,
@@ -15,37 +14,6 @@ export function TimeSlider() {
     setPlaybackSpeed,
   } = useTimetableStore()
 
-  // Debug: log stop times info and find time range
-  useEffect(() => {
-    if (stopTimes.length > 0) {
-      const sample = stopTimes.slice(0, 3)
-      console.log('Sample stop_times:', sample)
-      console.log('Sample parsed times:', sample.map(st => ({
-        arrival: st.arrival_time,
-        departure: st.departure_time,
-        parsedArrival: parseGtfsTime(st.arrival_time),
-        parsedDeparture: parseGtfsTime(st.departure_time),
-      })))
-
-      // Find time range in the data
-      let minTime = Infinity
-      let maxTime = -Infinity
-      for (const st of stopTimes) {
-        const arrTime = parseGtfsTime(st.arrival_time)
-        const depTime = parseGtfsTime(st.departure_time)
-        if (arrTime > 0) {
-          minTime = Math.min(minTime, arrTime)
-          maxTime = Math.max(maxTime, arrTime)
-        }
-        if (depTime > 0) {
-          minTime = Math.min(minTime, depTime)
-          maxTime = Math.max(maxTime, depTime)
-        }
-      }
-      console.log('Time range in GTFS:', formatTime(minTime), '-', formatTime(maxTime))
-      console.log('Current time:', formatTime(currentTimeSeconds))
-    }
-  }, [stopTimes, currentTimeSeconds])
 
   if (!feedStats) return null
 

@@ -75,6 +75,44 @@ export function Map() {
     }
   }, [stopsGeoJson, selectedStopIds])
 
+  // Calculate origin and destination stop IDs for selected routes
+  const { originStopIds, destinationStopIds } = useMemo(() => {
+    const origins = new Set<string>()
+    const destinations = new Set<string>()
+
+    if (selectedRouteIds.size === 0) {
+      return { originStopIds: origins, destinationStopIds: destinations }
+    }
+
+    // Get trip IDs for selected routes
+    const selectedTripIds = new Set(
+      trips
+        .filter((t) => selectedRouteIds.has(t.route_id))
+        .map((t) => t.trip_id)
+    )
+
+    // Group stop times by trip
+    const tripStopTimesMap: Record<string, typeof stopTimes> = {}
+    for (const st of stopTimes) {
+      if (selectedTripIds.has(st.trip_id)) {
+        if (!tripStopTimesMap[st.trip_id]) {
+          tripStopTimesMap[st.trip_id] = []
+        }
+        tripStopTimesMap[st.trip_id].push(st)
+      }
+    }
+
+    // Find first and last stop of each trip
+    for (const times of Object.values(tripStopTimesMap)) {
+      if (times.length < 2) continue
+      times.sort((a, b) => a.stop_sequence - b.stop_sequence)
+      origins.add(times[0].stop_id)
+      destinations.add(times[times.length - 1].stop_id)
+    }
+
+    return { originStopIds: origins, destinationStopIds: destinations }
+  }, [selectedRouteIds, trips, stopTimes])
+
   // Filter vehicle positions based on selected routes
   const filteredVehiclePositions = useMemo(() => {
     if (selectedRouteIds.size === 0) return vehiclePositions // Show all if no route selected
@@ -119,7 +157,6 @@ export function Map() {
   // Update vehicle positions when time changes
   useEffect(() => {
     if (stopTimes.length > 0 && trips.length > 0 && stops.length > 0) {
-      console.log('Calculating vehicle positions for time:', currentTimeSeconds, 'with', stopTimes.length, 'stop times and', frequencies.length, 'frequencies')
       const positions = getVehiclePositions(
         stopTimes,
         trips,
@@ -128,7 +165,6 @@ export function Map() {
         frequencies,
         currentTimeSeconds
       )
-      console.log('Found', positions.length, 'active vehicles')
       setVehiclePositions(positions)
     }
   }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, setVehiclePositions])
@@ -212,7 +248,12 @@ export function Map() {
       )}
 
       {filteredStopsGeoJson && (
-        <StopsLayer data={filteredStopsGeoJson} visible={layerVisibility.stops} />
+        <StopsLayer
+          data={filteredStopsGeoJson}
+          visible={layerVisibility.stops}
+          originStopIds={originStopIds}
+          destinationStopIds={destinationStopIds}
+        />
       )}
 
       <VehiclesLayer
