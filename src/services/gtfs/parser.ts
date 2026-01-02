@@ -1,14 +1,25 @@
 import type { ParsedGtfsData, GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsCalendarDate, GtfsFrequency, GtfsAgency, GtfsFeedInfo } from '../../types/gtfs'
-import { extractGtfsZip } from './zipHandler'
+import { extractGtfsZip, type GtfsFiles } from './zipHandler'
+import { extractGtfsFolder } from './folderHandler'
 import { parseGtfsCsv } from './csvParser'
 
+export type GtfsInput = File | File[]
+
 export async function parseGtfsFile(
-  file: File,
+  input: GtfsInput,
   onProgress?: (progress: number, message: string) => void
 ): Promise<ParsedGtfsData> {
-  // Step 1: Extract ZIP (0-30%)
+  // Step 1: Extract files (0-30%)
   onProgress?.(0, 'Extracting GTFS files...')
-  const files = await extractGtfsZip(file, (p) => onProgress?.(p, 'Extracting GTFS files...'))
+
+  let files: GtfsFiles
+  if (Array.isArray(input)) {
+    // Folder input
+    files = await extractGtfsFolder(input, (p) => onProgress?.(p, 'Reading GTFS folder...'))
+  } else {
+    // ZIP file input
+    files = await extractGtfsZip(input, (p) => onProgress?.(p, 'Extracting GTFS files...'))
+  }
 
   // Step 2: Parse CSV files (30-90%)
   const result: ParsedGtfsData = {

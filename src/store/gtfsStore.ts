@@ -5,7 +5,7 @@ import type { StopProperties } from '../services/gtfs/stopsToGeoJson'
 import type { ShapeProperties } from '../services/gtfs/shapesToGeoJson'
 import { stopsToGeoJson, calculateBounds } from '../services/gtfs/stopsToGeoJson'
 import { shapesToGeoJson } from '../services/gtfs/shapesToGeoJson'
-import { parseGtfsFile } from '../services/gtfs/parser'
+import { parseGtfsFile, type GtfsInput } from '../services/gtfs/parser'
 import { saveGtfsFile, loadGtfsFile, clearGtfsData } from '../services/storage/indexedDb'
 
 interface GtfsState {
@@ -42,7 +42,7 @@ interface GtfsState {
   error: string | null
 
   // Actions
-  loadGtfsFile: (file: File) => Promise<void>
+  loadGtfsFile: (input: GtfsInput) => Promise<void>
   loadFromStorage: () => Promise<boolean>
   clearData: () => Promise<void>
 }
@@ -65,17 +65,19 @@ export const useGtfsStore = create<GtfsState>((set) => ({
   loadingMessage: '',
   error: null,
 
-  loadGtfsFile: async (file: File) => {
+  loadGtfsFile: async (input: GtfsInput) => {
     set({ isLoading: true, loadingProgress: 0, error: null })
 
     try {
-      const data = await parseGtfsFile(file, (progress, message) => {
+      const data = await parseGtfsFile(input, (progress, message) => {
         set({ loadingProgress: progress, loadingMessage: message })
       })
 
-      // Save original ZIP file to IndexedDB
-      set({ loadingMessage: 'Saving to local storage...' })
-      await saveGtfsFile(file)
+      // Save original file to IndexedDB (only for ZIP files, not folders)
+      if (!Array.isArray(input)) {
+        set({ loadingMessage: 'Saving to local storage...' })
+        await saveGtfsFile(input)
+      }
 
       // Convert to GeoJSON (pass stopTimes for origin/destination detection)
       const stopsGeoJson = stopsToGeoJson(data.stops, data.stopTimes)
