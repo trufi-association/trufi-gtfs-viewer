@@ -10,14 +10,15 @@ interface StopsLayerProps {
   destinationStopIds?: Set<string>
 }
 
-// All stops - small dark circles
+// All stops - small black circles, visible from zoom 14+
 const allStopsStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
   type: 'circle',
+  minzoom: 14,
   paint: {
-    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2, 12, 3, 16, 5],
-    'circle-color': '#e74c3c',
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 4],
+    'circle-color': '#000000',
     'circle-stroke-color': '#ffffff',
-    'circle-stroke-width': 1,
+    'circle-stroke-width': 0.5,
   },
 }
 

@@ -29,9 +29,6 @@ export function parseGtfsCsv<T>(csvText: string): T[] {
     transform: (value) => value.trim(),
   })
 
-  if (result.errors.length > 0) {
-    console.warn('CSV parsing warnings:', result.errors)
-  }
 
   return result.data
 }
