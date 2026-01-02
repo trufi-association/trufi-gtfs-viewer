@@ -152,14 +152,8 @@ export function RouteList() {
     const query = searchQuery.toLowerCase()
     return routes.filter((route) => {
       const shortName = String(route.route_short_name ?? '').toLowerCase()
-      const longName = String(route.route_long_name ?? '').toLowerCase()
-      const routeId = String(route.route_id).toLowerCase()
 
-      const matchesSearch =
-        !searchQuery ||
-        shortName.includes(query) ||
-        longName.includes(query) ||
-        routeId.includes(query)
+      const matchesSearch = !searchQuery || shortName.includes(query)
 
       const matchesType =
         selectedRouteTypes.size === 0 || selectedRouteTypes.has(route.route_type)
@@ -277,6 +271,21 @@ export function RouteList() {
                           {route.route_long_name}
                         </div>
                       )}
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <span className="font-mono">ID: {route.route_id}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(route.route_id)
+                          }}
+                          className="p-0.5 hover:bg-gray-200 rounded"
+                          title="Copy ID"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span className="text-xs text-gray-400 flex-shrink-0">
                       {ROUTE_TYPES[route.route_type] || route.route_type}
