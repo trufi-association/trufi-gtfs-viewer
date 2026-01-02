@@ -169,23 +169,21 @@ export function Map() {
     }
   }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, setVehiclePositions])
 
-  // Animation loop for playback
+  // Animation loop for playback - uses setInterval for consistent updates
   useEffect(() => {
     if (!isPlaying) return
 
+    const UPDATE_INTERVAL = 50 // 50ms = 20fps, good balance of smoothness and performance
     let lastTime = performance.now()
-    let animationId: number
 
-    const animate = (currentTime: number) => {
-      const delta = (currentTime - lastTime) / 1000 // Convert to seconds
-      lastTime = currentTime
-      // incrementTime already multiplies by playbackSpeed internally
-      useTimetableStore.getState().incrementTime(delta) // 1 real second = 1 simulated second at 1x speed
-      animationId = requestAnimationFrame(animate)
-    }
+    const intervalId = setInterval(() => {
+      const now = performance.now()
+      const delta = (now - lastTime) / 1000
+      lastTime = now
+      useTimetableStore.getState().incrementTime(delta)
+    }, UPDATE_INTERVAL)
 
-    animationId = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(animationId)
+    return () => clearInterval(intervalId)
   }, [isPlaying])
 
   // Handle click on map features

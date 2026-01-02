@@ -1,5 +1,18 @@
 import type { GtfsStopTime, GtfsTrip, GtfsStop, GtfsRoute, GtfsFrequency, VehiclePosition } from '../../types/gtfs'
 
+// Cached data structures to avoid recalculating on each frame
+let cachedTripData: {
+  tripDurations: Map<string, { duration: number; stopTimes: GtfsStopTime[]; firstTime: number }>
+  tripFrequencies: Map<string, GtfsFrequency[]>
+  stopsMap: Map<string, GtfsStop>
+  tripsMap: Map<string, GtfsTrip>
+  routesMap: Map<string, GtfsRoute>
+} | null = null
+
+let lastStopTimesLength = 0
+let lastFrequenciesLength = 0
+let lastStopsLength = 0
+
 // Parse GTFS time string (HH:MM:SS) to seconds since midnight
 // Also handles cases where PapaParse converts times to numbers (e.g., "8:30:00" -> 83000)
 export function parseGtfsTime(timeStr: string | number | undefined | null): number {
@@ -45,107 +58,6 @@ export function formatTime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = Math.floor(seconds % 60)
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
-// Represents an active vehicle instance (could be from frequency or regular schedule)
-interface ActiveVehicle {
-  tripId: string
-  instanceId: string // Unique ID for this vehicle instance
-  tripStartTime: number // When this specific trip instance started
-  tripDuration: number // How long the trip takes
-  stopTimes: GtfsStopTime[]
-}
-
-// Get active vehicles at a given time (handles both frequency-based and regular trips)
-export function getActiveVehicles(
-  stopTimes: GtfsStopTime[],
-  frequencies: GtfsFrequency[],
-  currentTimeSeconds: number
-): ActiveVehicle[] {
-  // Group stop times by trip_id
-  const tripStopTimes = new Map<string, GtfsStopTime[]>()
-  for (const st of stopTimes) {
-    const existing = tripStopTimes.get(st.trip_id) || []
-    existing.push(st)
-    tripStopTimes.set(st.trip_id, existing)
-  }
-
-  // Sort stop times by sequence and calculate trip durations
-  const tripDurations = new Map<string, { duration: number; stopTimes: GtfsStopTime[] }>()
-  for (const [tripId, times] of tripStopTimes) {
-    times.sort((a, b) => a.stop_sequence - b.stop_sequence)
-    const firstTime = parseGtfsTime(times[0].departure_time)
-    const lastTime = parseGtfsTime(times[times.length - 1].arrival_time)
-    if (firstTime >= 0 && lastTime >= 0) {
-      tripDurations.set(tripId, { duration: lastTime - firstTime, stopTimes: times })
-    }
-  }
-
-  const activeVehicles: ActiveVehicle[] = []
-
-  // Check if we have frequencies (frequency-based GTFS)
-  if (frequencies.length > 0) {
-    // Group frequencies by trip_id
-    const tripFrequencies = new Map<string, GtfsFrequency[]>()
-    for (const freq of frequencies) {
-      const existing = tripFrequencies.get(freq.trip_id) || []
-      existing.push(freq)
-      tripFrequencies.set(freq.trip_id, existing)
-    }
-
-    // For each trip with frequencies, generate vehicle instances
-    for (const [tripId, freqs] of tripFrequencies) {
-      const tripData = tripDurations.get(tripId)
-      if (!tripData) continue
-
-      for (const freq of freqs) {
-        const freqStart = parseGtfsTime(freq.start_time)
-        const freqEnd = parseGtfsTime(freq.end_time)
-        const headway = freq.headway_secs
-
-        if (freqStart < 0 || freqEnd < 0 || headway <= 0) continue
-
-        // Generate vehicle instances based on headway
-        let departureTime = freqStart
-        let instanceNum = 0
-        while (departureTime < freqEnd) {
-          const tripEndTime = departureTime + tripData.duration
-
-          // Check if this instance is active at current time
-          if (currentTimeSeconds >= departureTime && currentTimeSeconds <= tripEndTime) {
-            activeVehicles.push({
-              tripId,
-              instanceId: `${tripId}_${instanceNum}`,
-              tripStartTime: departureTime,
-              tripDuration: tripData.duration,
-              stopTimes: tripData.stopTimes,
-            })
-          }
-
-          departureTime += headway
-          instanceNum++
-        }
-      }
-    }
-  } else {
-    // Regular schedule-based GTFS (no frequencies)
-    for (const [tripId, tripData] of tripDurations) {
-      const firstTime = parseGtfsTime(tripData.stopTimes[0].departure_time)
-      const lastTime = parseGtfsTime(tripData.stopTimes[tripData.stopTimes.length - 1].arrival_time)
-
-      if (currentTimeSeconds >= firstTime && currentTimeSeconds <= lastTime) {
-        activeVehicles.push({
-          tripId,
-          instanceId: tripId,
-          tripStartTime: firstTime,
-          tripDuration: tripData.duration,
-          stopTimes: tripData.stopTimes,
-        })
-      }
-    }
-  }
-
-  return activeVehicles
 }
 
 // Interpolate vehicle position along a trip
@@ -235,7 +147,65 @@ function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number
   return (bearing + 360) % 360
 }
 
-// Get all vehicle positions at current time
+// Build or get cached data structures
+function getCachedData(
+  stopTimes: GtfsStopTime[],
+  trips: GtfsTrip[],
+  routes: GtfsRoute[],
+  stops: GtfsStop[],
+  frequencies: GtfsFrequency[]
+) {
+  // Invalidate cache if data changed
+  if (
+    cachedTripData === null ||
+    stopTimes.length !== lastStopTimesLength ||
+    frequencies.length !== lastFrequenciesLength ||
+    stops.length !== lastStopsLength
+  ) {
+    lastStopTimesLength = stopTimes.length
+    lastFrequenciesLength = frequencies.length
+    lastStopsLength = stops.length
+
+    // Group stop times by trip_id
+    const tripStopTimes = new Map<string, GtfsStopTime[]>()
+    for (const st of stopTimes) {
+      const existing = tripStopTimes.get(st.trip_id) || []
+      existing.push(st)
+      tripStopTimes.set(st.trip_id, existing)
+    }
+
+    // Sort stop times by sequence and calculate trip durations
+    const tripDurations = new Map<string, { duration: number; stopTimes: GtfsStopTime[]; firstTime: number }>()
+    for (const [tripId, times] of tripStopTimes) {
+      times.sort((a, b) => a.stop_sequence - b.stop_sequence)
+      const firstTime = parseGtfsTime(times[0].departure_time)
+      const lastTime = parseGtfsTime(times[times.length - 1].arrival_time)
+      if (firstTime >= 0 && lastTime >= 0) {
+        tripDurations.set(tripId, { duration: lastTime - firstTime, stopTimes: times, firstTime })
+      }
+    }
+
+    // Group frequencies by trip_id
+    const tripFrequencies = new Map<string, GtfsFrequency[]>()
+    for (const freq of frequencies) {
+      const existing = tripFrequencies.get(freq.trip_id) || []
+      existing.push(freq)
+      tripFrequencies.set(freq.trip_id, existing)
+    }
+
+    cachedTripData = {
+      tripDurations,
+      tripFrequencies,
+      stopsMap: new Map(stops.map((s) => [s.stop_id, s])),
+      tripsMap: new Map(trips.map((t) => [t.trip_id, t])),
+      routesMap: new Map(routes.map((r) => [r.route_id, r])),
+    }
+  }
+
+  return cachedTripData
+}
+
+// Get all vehicle positions at current time (optimized with caching)
 export function getVehiclePositions(
   stopTimes: GtfsStopTime[],
   trips: GtfsTrip[],
@@ -244,43 +214,98 @@ export function getVehiclePositions(
   frequencies: GtfsFrequency[],
   currentTimeSeconds: number
 ): VehiclePosition[] {
-  const activeVehicles = getActiveVehicles(stopTimes, frequencies, currentTimeSeconds)
-  const stopsMap = new Map(stops.map((s) => [s.stop_id, s]))
-  const tripsMap = new Map(trips.map((t) => [t.trip_id, t]))
-  const routesMap = new Map(routes.map((r) => [r.route_id, r]))
+  const cache = getCachedData(stopTimes, trips, routes, stops, frequencies)
+  const { tripDurations, tripFrequencies, stopsMap, tripsMap, routesMap } = cache
 
   const positions: VehiclePosition[] = []
 
-  for (const vehicle of activeVehicles) {
-    // Calculate elapsed time since this trip instance started
-    const elapsedTime = currentTimeSeconds - vehicle.tripStartTime
+  // Check if we have frequencies (frequency-based GTFS)
+  if (frequencies.length > 0) {
+    // For each trip with frequencies, generate vehicle instances
+    for (const [tripId, freqs] of tripFrequencies) {
+      const tripData = tripDurations.get(tripId)
+      if (!tripData) continue
 
-    const interpolated = interpolateVehiclePosition(
-      vehicle.stopTimes,
-      stopsMap,
-      elapsedTime
-    )
+      for (const freq of freqs) {
+        const freqStart = parseGtfsTime(freq.start_time)
+        const freqEnd = parseGtfsTime(freq.end_time)
+        const headway = freq.headway_secs
 
-    if (interpolated) {
-      const trip = tripsMap.get(vehicle.tripId)
-      const route = trip ? routesMap.get(trip.route_id) : undefined
+        if (freqStart < 0 || freqEnd < 0 || headway <= 0) continue
 
-      let color = '#3388ff'
-      if (route?.route_color) {
-        const colorStr = String(route.route_color)
-        color = colorStr.startsWith('#') ? colorStr : `#${colorStr}`
+        // Calculate which vehicle instances are active at current time
+        // Instead of iterating all instances, calculate directly
+        const firstPossibleInstance = Math.max(0, Math.floor((currentTimeSeconds - tripData.duration - freqStart) / headway))
+        const lastPossibleInstance = Math.floor((currentTimeSeconds - freqStart) / headway)
+
+        for (let instanceNum = firstPossibleInstance; instanceNum <= lastPossibleInstance; instanceNum++) {
+          const departureTime = freqStart + instanceNum * headway
+          if (departureTime >= freqEnd) break
+
+          const tripEndTime = departureTime + tripData.duration
+
+          // Check if this instance is active at current time
+          if (currentTimeSeconds >= departureTime && currentTimeSeconds <= tripEndTime) {
+            const elapsedTime = currentTimeSeconds - departureTime
+            const interpolated = interpolateVehiclePosition(tripData.stopTimes, stopsMap, elapsedTime)
+
+            if (interpolated) {
+              const trip = tripsMap.get(tripId)
+              const route = trip ? routesMap.get(trip.route_id) : undefined
+
+              let color = '#3388ff'
+              if (route?.route_color) {
+                const colorStr = String(route.route_color)
+                color = colorStr.startsWith('#') ? colorStr : `#${colorStr}`
+              }
+
+              positions.push({
+                tripId: `${tripId}_${instanceNum}`,
+                routeId: trip?.route_id || '',
+                position: interpolated.position,
+                bearing: interpolated.bearing,
+                nextStopId: interpolated.nextStopId,
+                progress: interpolated.progress,
+                color,
+                headsign: trip?.trip_headsign,
+              })
+            }
+          }
+        }
       }
+    }
+  } else {
+    // Regular schedule-based GTFS (no frequencies)
+    for (const [tripId, tripData] of tripDurations) {
+      const firstTime = tripData.firstTime
+      const lastTime = firstTime + tripData.duration
 
-      positions.push({
-        tripId: vehicle.instanceId, // Use instance ID to make each vehicle unique
-        routeId: trip?.route_id || '',
-        position: interpolated.position,
-        bearing: interpolated.bearing,
-        nextStopId: interpolated.nextStopId,
-        progress: interpolated.progress,
-        color,
-        headsign: trip?.trip_headsign,
-      })
+      if (currentTimeSeconds >= firstTime && currentTimeSeconds <= lastTime) {
+        const elapsedTime = currentTimeSeconds - firstTime
+        const interpolated = interpolateVehiclePosition(tripData.stopTimes, stopsMap, elapsedTime)
+
+        if (interpolated) {
+          const trip = tripsMap.get(tripId)
+          const route = trip ? routesMap.get(trip.route_id) : undefined
+
+          let color = '#3388ff'
+          if (route?.route_color) {
+            const colorStr = String(route.route_color)
+            color = colorStr.startsWith('#') ? colorStr : `#${colorStr}`
+          }
+
+          positions.push({
+            tripId,
+            routeId: trip?.route_id || '',
+            position: interpolated.position,
+            bearing: interpolated.bearing,
+            nextStopId: interpolated.nextStopId,
+            progress: interpolated.progress,
+            color,
+            headsign: trip?.trip_headsign,
+          })
+        }
+      }
     }
   }
 

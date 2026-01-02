@@ -30,33 +30,23 @@ function vehiclesToGeoJson(positions: VehiclePosition[]): FeatureCollection<Poin
   }
 }
 
-// Vehicle car icon as SVG - Uber-style top-down view
-const vehicleCarSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36">
-  <!-- Shadow -->
-  <ellipse cx="12" cy="34" rx="8" ry="2" fill="#000" opacity="0.2"/>
+// Simple car icon - black with white accents, top-down view
+const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="28" viewBox="0 0 16 28">
   <!-- Car body -->
-  <path d="M4 10 L4 26 Q4 28 6 28 L18 28 Q20 28 20 26 L20 10 Q20 6 12 4 Q4 6 4 10 Z" fill="#1a1a1a" stroke="#333" stroke-width="0.5"/>
-  <!-- Roof/cabin -->
-  <path d="M6 12 L6 20 Q6 21 7 21 L17 21 Q18 21 18 20 L18 12 Q18 9 12 8 Q6 9 6 12 Z" fill="#2d2d2d"/>
-  <!-- Front windshield -->
-  <path d="M7 11 Q12 9 17 11 L17 13 Q12 11.5 7 13 Z" fill="#4a90d9" opacity="0.8"/>
-  <!-- Rear windshield -->
-  <path d="M7 18 Q12 19 17 18 L17 20 Q12 20.5 7 20 Z" fill="#4a90d9" opacity="0.6"/>
-  <!-- Headlights -->
-  <rect x="7" y="5" width="3" height="1.5" rx="0.5" fill="#fff" opacity="0.9"/>
-  <rect x="14" y="5" width="3" height="1.5" rx="0.5" fill="#fff" opacity="0.9"/>
-  <!-- Taillights -->
-  <rect x="7" y="26" width="3" height="1" rx="0.5" fill="#ff4444"/>
-  <rect x="14" y="26" width="3" height="1" rx="0.5" fill="#ff4444"/>
+  <path d="M3 6 L3 22 Q3 24 5 24 L11 24 Q13 24 13 22 L13 6 Q13 3 8 2 Q3 3 3 6 Z" fill="#1a1a1a" stroke="#fff" stroke-width="1"/>
+  <!-- Windshield -->
+  <path d="M5 7 Q8 5.5 11 7 L11 10 Q8 9 5 10 Z" fill="#fff" opacity="0.8"/>
+  <!-- Rear window -->
+  <path d="M5 18 Q8 19 11 18 L11 21 Q8 20.5 5 21 Z" fill="#fff" opacity="0.6"/>
 </svg>`
 
-const vehicleCarDataUrl = `data:image/svg+xml;base64,${btoa(vehicleCarSvg)}`
+const carDataUrl = `data:image/svg+xml;base64,${btoa(carSvg)}`
 
 const vehicleStyle: Omit<SymbolLayerSpecification, 'id' | 'source'> = {
   type: 'symbol',
   layout: {
-    'icon-image': 'vehicle-car',
-    'icon-size': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 12, 0.9, 16, 1.2],
+    'icon-image': 'car-icon',
+    'icon-size': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 12, 1.0, 16, 1.3],
     'icon-rotate': ['get', 'bearing'],
     'icon-rotation-alignment': 'map',
     'icon-allow-overlap': true,
@@ -67,19 +57,19 @@ const vehicleStyle: Omit<SymbolLayerSpecification, 'id' | 'source'> = {
 export function VehiclesLayer({ positions, visible = true }: VehiclesLayerProps) {
   const { current: map } = useMap()
 
-  // Add the vehicle car icon to the map
+  // Add the car icon to the map
   useEffect(() => {
     if (!map) return
 
     const addIcon = () => {
-      if (!map.hasImage('vehicle-car')) {
+      if (!map.hasImage('car-icon')) {
         const img = new Image()
         img.onload = () => {
-          if (!map.hasImage('vehicle-car')) {
-            map.addImage('vehicle-car', img)
+          if (!map.hasImage('car-icon')) {
+            map.addImage('car-icon', img)
           }
         }
-        img.src = vehicleCarDataUrl
+        img.src = carDataUrl
       }
     }
 
@@ -93,6 +83,22 @@ export function VehiclesLayer({ positions, visible = true }: VehiclesLayerProps)
       map.off('load', addIcon)
     }
   }, [map])
+
+  // Ensure vehicles layer is always on top
+  useEffect(() => {
+    if (!map) return
+
+    const moveToTop = () => {
+      if (map.getLayer('vehicles-points')) {
+        map.moveLayer('vehicles-points')
+      }
+    }
+
+    // Move to top after a short delay to ensure other layers are added
+    const timeoutId = setTimeout(moveToTop, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [map, positions])
 
   if (!visible || positions.length === 0) return null
 
