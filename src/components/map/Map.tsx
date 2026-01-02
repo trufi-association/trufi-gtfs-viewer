@@ -37,7 +37,7 @@ export function Map() {
     useGtfsStore()
   const { layerVisibility, selectedRouteIds, selectedRouteTypes, setSelectedStop } =
     useUiStore()
-  const { currentTimeSeconds, isPlaying, vehiclePositions, setVehiclePositions } =
+  const { currentTimeSeconds, isPlaying, vehiclePositions, setVehiclePositions, setFilteredVehicleCount } =
     useTimetableStore()
 
   // Get stop IDs that belong to selected routes
@@ -80,6 +80,11 @@ export function Map() {
     if (selectedRouteIds.size === 0) return vehiclePositions // Show all if no route selected
     return vehiclePositions.filter((v) => selectedRouteIds.has(v.routeId))
   }, [vehiclePositions, selectedRouteIds])
+
+  // Update filtered vehicle count in store
+  useEffect(() => {
+    setFilteredVehicleCount(filteredVehiclePositions.length)
+  }, [filteredVehiclePositions.length, setFilteredVehicleCount])
 
   // Handle map load
   const handleMapLoad = useCallback(() => {
@@ -179,21 +184,6 @@ export function Map() {
           type: 'vehicle',
           properties: props,
         })
-      } else if (feature.layer.id === 'stops-clusters') {
-        // Zoom into cluster
-        const clusterId = feature.properties?.cluster_id
-        const source = mapRef.current?.getSource('stops')
-        if (source && 'getClusterExpansionZoom' in source) {
-          ;(source as unknown as { getClusterExpansionZoom: (id: number, cb: (err: Error | null, zoom: number) => void) => void })
-            .getClusterExpansionZoom(clusterId, (err, zoom) => {
-              if (!err && mapRef.current) {
-                mapRef.current.easeTo({
-                  center: [lng, lat],
-                  zoom,
-                })
-              }
-            })
-        }
       }
     },
     [setSelectedStop]
@@ -205,7 +195,7 @@ export function Map() {
       initialViewState={INITIAL_VIEW_STATE}
       mapStyle={MAP_STYLE}
       style={{ width: '100%', height: '100%' }}
-      interactiveLayerIds={['stops-unclustered', 'stops-origin', 'stops-destination', 'stops-clusters', 'vehicles-points']}
+      interactiveLayerIds={['stops-unclustered', 'stops-origin', 'stops-destination', 'vehicles-points']}
       onClick={handleClick}
       onLoad={handleMapLoad}
     >

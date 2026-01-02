@@ -7,6 +7,7 @@ interface TimetableState {
   playbackSpeed: number
   selectedTripId: string | null
   vehiclePositions: VehiclePosition[]
+  filteredVehicleCount: number
 
   setCurrentTime: (seconds: number) => void
   setIsPlaying: (playing: boolean) => void
@@ -14,6 +15,7 @@ interface TimetableState {
   setPlaybackSpeed: (speed: number) => void
   setSelectedTrip: (tripId: string | null) => void
   setVehiclePositions: (positions: VehiclePosition[]) => void
+  setFilteredVehicleCount: (count: number) => void
   incrementTime: (deltaSeconds: number) => void
 }
 
@@ -26,6 +28,7 @@ export const useTimetableStore = create<TimetableState>((set) => ({
   playbackSpeed: 1,
   selectedTripId: null,
   vehiclePositions: [],
+  filteredVehicleCount: 0,
 
   setCurrentTime: (seconds) => {
     // Wrap around at 24 hours (86400 seconds)
@@ -42,6 +45,8 @@ export const useTimetableStore = create<TimetableState>((set) => ({
   setSelectedTrip: (tripId) => set({ selectedTripId: tripId }),
 
   setVehiclePositions: (positions) => set({ vehiclePositions: positions }),
+
+  setFilteredVehicleCount: (count) => set({ filteredVehicleCount: count }),
 
   incrementTime: (deltaSeconds) =>
     set((state) => {

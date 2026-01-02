@@ -9,7 +9,7 @@ export function TimeSlider() {
     currentTimeSeconds,
     isPlaying,
     playbackSpeed,
-    vehiclePositions,
+    filteredVehicleCount,
     setCurrentTime,
     togglePlayback,
     setPlaybackSpeed,
@@ -81,7 +81,7 @@ export function TimeSlider() {
 
         {/* Active vehicles count */}
         <div className="text-sm text-gray-500">
-          <span className="font-semibold text-green-600">{vehiclePositions.length}</span>{' '}
+          <span className="font-semibold text-green-600">{filteredVehicleCount}</span>{' '}
           active vehicles
         </div>
 

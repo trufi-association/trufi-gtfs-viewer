@@ -8,89 +8,47 @@ interface StopsLayerProps {
   visible?: boolean
 }
 
-// Regular intermediate stops - red circles
+// Regular intermediate stops - small red circles
 const intermediateStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
   type: 'circle',
-  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'intermediate']],
+  filter: ['==', ['get', 'stop_type'], 'intermediate'],
+  paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2, 12, 3, 16, 5],
+    'circle-color': '#e74c3c',
+    'circle-stroke-color': '#ffffff',
+    'circle-stroke-width': 1,
+  },
+}
+
+// Origin stops - green circles (slightly larger)
+const originStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+  type: 'circle',
+  filter: ['==', ['get', 'stop_type'], 'origin'],
   paint: {
     'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 12, 5, 16, 8],
-    'circle-color': '#e74c3c',
+    'circle-color': '#27ae60',
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 1.5,
   },
 }
 
-// Origin stops - green circles (larger)
-const originStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
-  type: 'circle',
-  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'origin']],
-  paint: {
-    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8, 16, 12],
-    'circle-color': '#27ae60',
-    'circle-stroke-color': '#ffffff',
-    'circle-stroke-width': 2,
-  },
-}
-
-// Destination stops - blue circles (larger)
+// Destination stops - blue circles (slightly larger)
 const destinationStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
   type: 'circle',
-  filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'stop_type'], 'destination']],
+  filter: ['==', ['get', 'stop_type'], 'destination'],
   paint: {
-    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8, 16, 12],
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 12, 5, 16, 8],
     'circle-color': '#3498db',
     'circle-stroke-color': '#ffffff',
-    'circle-stroke-width': 2,
-  },
-}
-
-const clusterStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
-  type: 'circle',
-  filter: ['has', 'point_count'],
-  paint: {
-    'circle-color': [
-      'step',
-      ['get', 'point_count'],
-      '#f39c12',
-      10,
-      '#e67e22',
-      50,
-      '#d35400',
-    ],
-    'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 50, 25],
+    'circle-stroke-width': 1.5,
   },
 }
 
 export function StopsLayer({ data, visible = true }: StopsLayerProps) {
-
   if (!visible || !data) return null
 
   return (
-    <Source
-      id="stops"
-      type="geojson"
-      data={data}
-      cluster={true}
-      clusterMaxZoom={14}
-      clusterRadius={50}
-    >
-      {/* Clustered points */}
-      <Layer id="stops-clusters" {...clusterStyle} />
-
-      {/* Cluster count labels */}
-      <Layer
-        id="stops-cluster-count"
-        type="symbol"
-        filter={['has', 'point_count']}
-        layout={{
-          'text-field': '{point_count_abbreviated}',
-          'text-size': 12,
-        }}
-        paint={{
-          'text-color': '#ffffff',
-        }}
-      />
-
+    <Source id="stops" type="geojson" data={data}>
       {/* Intermediate stops - red (rendered first, below terminals) */}
       <Layer id="stops-unclustered" {...intermediateStopStyle} />
 
