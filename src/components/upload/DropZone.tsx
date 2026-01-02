@@ -44,67 +44,61 @@ export function DropZone() {
     disabled: isLoading,
   })
 
+  const dropzoneClass = [
+    'dropzone',
+    isDragActive ? 'active' : '',
+    isDragReject ? 'reject' : '',
+    isLoading ? 'disabled' : '',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className="p-4">
-      <div
-        {...getRootProps()}
-        className={`
-          border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
-          transition-colors duration-200
-          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
-          ${isDragReject ? 'border-red-500 bg-red-50' : ''}
-          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-gray-50'}
-        `}
-      >
+    <div className="dropzone-container">
+      <div {...getRootProps()} className={dropzoneClass}>
         <input {...getInputProps()} />
 
         {isLoading ? (
-          <div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${loadingProgress}%` }}
-              />
+          <div className="loading-indicator">
+            {/* Circular progress */}
+            <div className="progress-ring">
+              <svg width="100%" height="100%" viewBox="0 0 36 36">
+                <defs>
+                  <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor="#6366f1" />
+                  </linearGradient>
+                </defs>
+                <path
+                  className="progress-bg"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="progress-bar"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  strokeDasharray={`${loadingProgress}, 100`}
+                />
+              </svg>
+              <span className="progress-text">{loadingProgress}%</span>
             </div>
-            <p className="text-gray-600 text-sm">{loadingMessage}</p>
-            <p className="text-gray-400 text-xs mt-1">{loadingProgress}%</p>
+            <p className="loading-message">{loadingMessage}</p>
           </div>
         ) : isDragActive ? (
-          <div>
-            <svg
-              className="w-10 h-10 mx-auto mb-2 text-blue-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-            <p className="text-blue-600 font-medium">Drop the GTFS file here...</p>
+          <div className="dropzone-content">
+            <div className="dropzone-icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p className="dropzone-title">Drop file here...</p>
           </div>
         ) : (
-          <div>
-            <svg
-              className="w-10 h-10 mx-auto mb-2 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-            <p className="text-gray-600 mb-1">
-              Drag & drop a GTFS ZIP file here
-            </p>
-            <p className="text-gray-400 text-sm">or click to select a ZIP</p>
+          <div className="dropzone-content">
+            <div className="dropzone-icon">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p className="dropzone-title">Drop a GTFS ZIP file</p>
+            <p className="dropzone-subtitle">or click to select</p>
           </div>
         )}
       </div>
@@ -117,7 +111,7 @@ export function DropZone() {
         directory=""
         multiple
         onChange={handleFolderSelect}
-        className="hidden"
+        className="visually-hidden"
         disabled={isLoading}
       />
 
@@ -125,29 +119,17 @@ export function DropZone() {
         type="button"
         onClick={() => folderInputRef.current?.click()}
         disabled={isLoading}
-        className={`
-          mt-3 w-full py-2 px-4 border border-gray-300 rounded-lg
-          text-gray-600 text-sm font-medium
-          transition-colors duration-200
-          ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'}
-        `}
+        className="folder-button"
       >
-        <div className="flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
-          Select GTFS Folder
-        </div>
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+        </svg>
+        Select GTFS folder
       </button>
 
       {error && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 text-sm">{error}</p>
+        <div className="error-message animate-slide-up">
+          <p>{error}</p>
         </div>
       )}
     </div>

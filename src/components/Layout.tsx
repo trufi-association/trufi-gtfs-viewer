@@ -10,63 +10,52 @@ export function Layout() {
   const { feedStats } = useGtfsStore()
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="app-layout">
       {/* Mobile header */}
-      <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
-        <h1 className="font-bold text-gray-800">GTFS Viewer</h1>
+      <header className="mobile-header">
+        <h1>GTFS Viewer</h1>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-lg hover:bg-gray-100"
+          className="btn btn-ghost btn-icon"
         >
           {sidebarOpen ? (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           ) : (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           )}
         </button>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={`
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            md:translate-x-0 md:relative
-            absolute z-20 h-full
-            w-80 bg-white border-r shadow-lg md:shadow-none
-            transition-transform duration-200 ease-in-out
-            flex flex-col
-          `}
-        >
-          <div className="flex-1 overflow-y-auto">
-            <Sidebar />
-            <TimetablePanel />
-          </div>
-        </aside>
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-inner">
+          <Sidebar />
+          <TimetablePanel />
+        </div>
+      </aside>
 
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <div
-            className="md:hidden fixed inset-0 bg-black/50 z-10"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Main content */}
-        <main className="flex-1 flex flex-col relative">
-          {/* Map */}
-          <div className="flex-1 relative">
-            <Map />
-          </div>
+      {/* Main content */}
+      <main className="main-content">
+        {/* Map */}
+        <div className="map-container">
+          <Map />
+        </div>
 
-          {/* Time slider at bottom */}
-          {feedStats && <TimeSlider />}
-        </main>
-      </div>
+        {/* Time slider at bottom */}
+        {feedStats && <TimeSlider />}
+      </main>
     </div>
   )
 }

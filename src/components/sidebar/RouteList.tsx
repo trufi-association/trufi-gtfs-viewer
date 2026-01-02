@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useGtfsStore } from '../../store/gtfsStore'
 import { useUiStore } from '../../store/uiStore'
 import { ROUTE_TYPES } from '../../types/gtfs'
@@ -37,8 +37,6 @@ export function RouteList() {
     searchQuery,
     setSearchQuery,
   } = useUiStore()
-
-  const [isExpanded, setIsExpanded] = useState(true)
 
   // Calculate stats for each route
   const routeStats = useMemo(() => {
@@ -165,175 +163,145 @@ export function RouteList() {
   if (routes.length === 0) return null
 
   return (
-    <div className="border-b border-gray-200">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-4 flex items-center justify-between hover:bg-gray-50"
-      >
-        <h3 className="font-semibold text-sm text-gray-700">
-          Routes ({routes.length})
-        </h3>
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {isExpanded && (
-        <div className="px-4 pb-4">
-          {/* Search */}
+    <div className="route-list">
+      {/* Search */}
+      <div className="route-list-header">
+        <div className="input-with-icon">
+          <svg
+            className="input-icon"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
             type="text"
             placeholder="Search routes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input"
           />
+        </div>
+      </div>
 
-          {/* Route type filters */}
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-500">Filter by type</span>
-              {selectedRouteTypes.size > 0 && (
-                <button
-                  onClick={clearRouteTypeFilter}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {availableRouteTypes.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => toggleRouteType(type)}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                    selectedRouteTypes.has(type)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {ROUTE_TYPES[type] || `Type ${type}`}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Selected routes indicator */}
-          {selectedRouteIds.size > 0 && (
-            <div className="flex items-center justify-between mb-2 text-xs">
-              <span className="text-gray-500">{selectedRouteIds.size} selected</span>
-              <button
-                onClick={clearRouteSelection}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                Clear selection
-              </button>
-            </div>
+      {/* Filters section */}
+      <div className="route-filters">
+        <div className="filter-header">
+          <span className="filter-label">Type</span>
+          {selectedRouteTypes.size > 0 && (
+            <button onClick={clearRouteTypeFilter} className="filter-clear">
+              Clear
+            </button>
           )}
+        </div>
+        <div className="filter-chips">
+          {availableRouteTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => toggleRouteType(type)}
+              className={`chip ${selectedRouteTypes.has(type) ? 'chip-active' : 'chip-default'}`}
+            >
+              {ROUTE_TYPES[type] || `Type ${type}`}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {/* Route list */}
-          <div className="max-h-96 overflow-y-auto space-y-1">
-            {filteredRoutes.map((route) => {
-              const colorStr = String(route.route_color ?? '')
-              const color = colorStr
-                ? colorStr.startsWith('#')
-                  ? colorStr
-                  : `#${colorStr}`
-                : '#3388ff'
-              const isSelected = selectedRouteIds.has(route.route_id)
-              const stats = routeStats.get(route.route_id)
+      {/* Results header */}
+      <div className="route-list-results">
+        <span className="results-count">
+          <strong>{filteredRoutes.length}</strong> of {routes.length} routes
+        </span>
+        {selectedRouteIds.size > 0 && (
+          <button onClick={clearRouteSelection} className="results-clear">
+            Deselect ({selectedRouteIds.size})
+          </button>
+        )}
+      </div>
 
-              return (
-                <button
-                  key={route.route_id}
-                  onClick={() => toggleRouteSelection(route.route_id)}
-                  className={`w-full p-2 rounded text-left text-sm transition-colors ${
-                    isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: color }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-gray-800 truncate">
-                        {route.route_short_name || route.route_id}
-                      </div>
-                      {route.route_long_name && (
-                        <div className="text-xs text-gray-500 truncate">
-                          {route.route_long_name}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <span className="font-mono">ID: {route.route_id}</span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigator.clipboard.writeText(route.route_id)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.stopPropagation()
-                              navigator.clipboard.writeText(route.route_id)
-                            }
-                          }}
-                          className="p-0.5 hover:bg-gray-200 rounded cursor-pointer"
-                          title="Copy ID"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
+      {/* Route list */}
+      <div className="route-list-items">
+        {filteredRoutes.map((route) => {
+          const colorStr = String(route.route_color ?? '')
+          const color = colorStr
+            ? colorStr.startsWith('#')
+              ? colorStr
+              : `#${colorStr}`
+            : '#0891b2'
+          const isSelected = selectedRouteIds.has(route.route_id)
+          const stats = routeStats.get(route.route_id)
+
+          return (
+            <button
+              key={route.route_id}
+              onClick={() => toggleRouteSelection(route.route_id)}
+              className={`route-item ${isSelected ? 'selected' : ''}`}
+            >
+              <div className="route-item-content">
+                {/* Color indicator */}
+                <span
+                  className="route-color"
+                  style={{ backgroundColor: color }}
+                />
+
+                <div className="route-info">
+                  <div className="route-header">
+                    <span className="route-name">
+                      {route.route_short_name || route.route_id}
+                    </span>
+                    <span className="tag">
                       {ROUTE_TYPES[route.route_type] || route.route_type}
                     </span>
                   </div>
 
-                  {/* Route stats */}
+                  {route.route_long_name && (
+                    <div className="route-long-name">
+                      {route.route_long_name}
+                    </div>
+                  )}
+
+                  {/* Stats row */}
                   {stats && stats.tripCount > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                      <span title="Number of stops">
-                        {stats.stopCount} stops
+                    <div className="route-stats">
+                      <span className="route-stat">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        {stats.stopCount}
                       </span>
                       {stats.distanceKm > 0 && (
-                        <span title="Route distance">
+                        <span className="route-stat">
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                          </svg>
                           {stats.distanceKm.toFixed(1)} km
                         </span>
                       )}
                       {stats.durationMinutes > 0 && (
-                        <span title="Trip duration">
+                        <span className="route-stat">
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
                           {Math.round(stats.durationMinutes)} min
                         </span>
                       )}
-                      {stats.avgSpeedKmh > 0 && (
-                        <span title="Average speed">
-                          {stats.avgSpeedKmh.toFixed(0)} km/h
-                        </span>
-                      )}
                       {stats.headwayMinutes && (
-                        <span title="Frequency" className="text-green-600">
-                          c/{Math.round(stats.headwayMinutes)} min
+                        <span className="route-stat highlight">
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          every {Math.round(stats.headwayMinutes)} min
                         </span>
                       )}
                     </div>
                   )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

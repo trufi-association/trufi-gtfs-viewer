@@ -20,51 +20,47 @@ export function TimeSlider() {
   const speeds = [1, 2, 5, 10, 30, 60]
 
   return (
-    <div className="bg-white border-t border-gray-200 p-4">
-      <div className="flex items-center gap-4 mb-3">
+    <div className="time-slider">
+      <div className="time-controls">
         {/* Play/Pause button */}
         <button
           onClick={togglePlayback}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-            isPlaying
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
-          }`}
+          className={`play-button ${isPlaying ? 'playing' : 'paused'}`}
         >
           {isPlaying ? (
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
 
-        {/* Current time display - full HH:MM:SS */}
-        <div className="text-2xl font-mono font-bold text-gray-800 min-w-28">
+        {/* Current time display */}
+        <div className="time-display">
           {formatTime(Math.floor(currentTimeSeconds))}
         </div>
 
         {/* Active vehicles count */}
-        <div className="text-sm text-gray-500">
-          <span className="font-semibold text-green-600">{filteredVehicleCount}</span>{' '}
-          active vehicles
+        <div className="vehicle-count">
+          <span className="pulse-dot">
+            <span className="pulse-ring"></span>
+            <span className="pulse-center"></span>
+          </span>
+          <span className="count-text">
+            <strong>{filteredVehicleCount}</strong> vehicles
+          </span>
         </div>
 
         {/* Speed selector */}
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="text-xs text-gray-500 mr-2">Speed:</span>
+        <div className="speed-selector">
           {speeds.map((speed) => (
             <button
               key={speed}
               onClick={() => setPlaybackSpeed(speed)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                playbackSpeed === speed
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`speed-button ${playbackSpeed === speed ? 'active' : 'inactive'}`}
             >
               {speed}x
             </button>
@@ -73,7 +69,14 @@ export function TimeSlider() {
       </div>
 
       {/* Time slider */}
-      <div className="relative">
+      <div className="slider-container">
+        {/* Progress bar background */}
+        <div className="slider-track">
+          <div
+            className="slider-progress"
+            style={{ width: `${(currentTimeSeconds / 86400) * 100}%` }}
+          />
+        </div>
         <input
           type="range"
           min={0}
@@ -81,10 +84,9 @@ export function TimeSlider() {
           step={60}
           value={currentTimeSeconds}
           onChange={(e) => setCurrentTime(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
         />
         {/* Time markers */}
-        <div className="flex justify-between text-xs text-gray-400 mt-1">
+        <div className="slider-markers">
           <span>00:00</span>
           <span>06:00</span>
           <span>12:00</span>
