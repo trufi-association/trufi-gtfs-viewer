@@ -3,6 +3,7 @@ import type { VehiclePosition } from '../types/gtfs'
 
 interface TimetableState {
   currentTimeSeconds: number
+  selectedDate: Date
   isPlaying: boolean
   playbackSpeed: number
   selectedTripId: string | null
@@ -10,6 +11,7 @@ interface TimetableState {
   filteredVehicleCount: number
 
   setCurrentTime: (seconds: number) => void
+  setSelectedDate: (date: Date) => void
   setIsPlaying: (playing: boolean) => void
   togglePlayback: () => void
   setPlaybackSpeed: (speed: number) => void
@@ -17,6 +19,8 @@ interface TimetableState {
   setVehiclePositions: (positions: VehiclePosition[]) => void
   setFilteredVehicleCount: (count: number) => void
   incrementTime: (deltaSeconds: number) => void
+  nextDay: () => void
+  prevDay: () => void
 }
 
 // Default to 8:00 AM
@@ -24,6 +28,7 @@ const DEFAULT_TIME = 8 * 3600
 
 export const useTimetableStore = create<TimetableState>((set) => ({
   currentTimeSeconds: DEFAULT_TIME,
+  selectedDate: new Date(),
   isPlaying: false,
   playbackSpeed: 1,
   selectedTripId: null,
@@ -35,6 +40,8 @@ export const useTimetableStore = create<TimetableState>((set) => ({
     const wrappedSeconds = ((seconds % 86400) + 86400) % 86400
     set({ currentTimeSeconds: wrappedSeconds })
   },
+
+  setSelectedDate: (date) => set({ selectedDate: date }),
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
 
@@ -54,5 +61,19 @@ export const useTimetableStore = create<TimetableState>((set) => ({
       // Wrap around at 24 hours
       const wrappedTime = ((newTime % 86400) + 86400) % 86400
       return { currentTimeSeconds: wrappedTime }
+    }),
+
+  nextDay: () =>
+    set((state) => {
+      const next = new Date(state.selectedDate)
+      next.setDate(next.getDate() + 1)
+      return { selectedDate: next }
+    }),
+
+  prevDay: () =>
+    set((state) => {
+      const prev = new Date(state.selectedDate)
+      prev.setDate(prev.getDate() - 1)
+      return { selectedDate: prev }
     }),
 }))
