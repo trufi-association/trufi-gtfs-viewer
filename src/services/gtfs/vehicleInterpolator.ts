@@ -318,7 +318,8 @@ export function getVehiclePositions(
 export function getVehiclePositionsOptimized(
   _cache: TrajectoryCache,
   timeIndex: TimeIndexedVehicles,
-  currentTimeSeconds: number
+  currentTimeSeconds: number,
+  activeServiceIds?: Set<string>
 ): VehiclePosition[] {
   const positions: VehiclePosition[] = []
 
@@ -337,6 +338,9 @@ export function getVehiclePositionsOptimized(
       // Skip if we've already processed this instance
       if (seenInstances.has(instance.instanceId)) continue
       seenInstances.add(instance.instanceId)
+
+      // Skip if service is not active for selected date
+      if (activeServiceIds && !activeServiceIds.has(instance.serviceId)) continue
 
       // Check if this instance is active at current time
       if (currentTimeSeconds >= instance.startTime && currentTimeSeconds <= instance.endTime) {

@@ -183,6 +183,7 @@ export interface PrecomputedTrajectory {
   totalDuration: number      // duración del trip en segundos
   segments: TripSegment[]
   segmentStartTimes: number[]  // para binary search O(log n)
+  firstDepartureTime: number   // tiempo absoluto del primer departure (segundos desde medianoche)
 }
 
 // Instancia activa de un vehículo (para frequencies)
@@ -193,6 +194,7 @@ export interface ActiveVehicleInstance {
   startTime: number          // cuando empieza esta instancia
   endTime: number            // cuando termina
   routeId: string
+  serviceId: string          // para filtrar por calendario
   color: string
   headsign?: string
 }

@@ -348,6 +348,7 @@ export function precomputeTrajectories(
       totalDuration,
       segments,
       segmentStartTimes,
+      firstDepartureTime: firstTime,
     })
 
     tripCount++
@@ -417,6 +418,7 @@ export function buildTimeIndex(
             startTime,
             endTime,
             routeId: trip?.route_id || '',
+            serviceId: trip?.service_id || '',
             color,
             headsign: trip?.trip_headsign,
           }
@@ -449,23 +451,18 @@ export function buildTimeIndex(
         color = colorStr.startsWith('#') ? colorStr : `#${colorStr}`
       }
 
-      // Para schedule-based, el startTime es el primer departure del trip
-      // Necesitamos obtenerlo del primer segmento + ajuste por tiempo absoluto
-      // Por ahora asumimos que segments[0].startTime es relativo al inicio del día
-      // Esto requiere ajuste según el dataset real
-
-      const firstSegmentTime = trajectory.segments[0]?.startTime || 0
-      // Necesitamos el tiempo absoluto del primer departure
-      // Lo calculamos buscando en el stopTimesByTrip original
-      // Por ahora, usamos una aproximación basada en la duración
+      // Usar el tiempo absoluto del primer departure guardado en la trayectoria
+      const startTime = trajectory.firstDepartureTime
+      const endTime = startTime + trajectory.totalDuration
 
       const instance: ActiveVehicleInstance = {
         tripId: trip.trip_id,
         instanceId: trip.trip_id,
         trajectory,
-        startTime: firstSegmentTime, // Esto necesita ajuste para tiempos absolutos
-        endTime: firstSegmentTime + trajectory.totalDuration,
+        startTime,
+        endTime,
         routeId: trip.route_id,
+        serviceId: trip.service_id,
         color,
         headsign: trip.trip_headsign,
       }

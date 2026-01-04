@@ -33,12 +33,32 @@ export function Map() {
   const [mapLoaded, setMapLoaded] = useState(false)
   const hasFittedBounds = useRef(false)
 
-  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies, trajectoryCache, timeIndex } =
+  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies, trajectoryCache, timeIndex, calendar } =
     useGtfsStore()
   const { layerVisibility, selectedRouteIds, selectedRouteTypes, setSelectedStop } =
     useUiStore()
-  const { currentTimeSeconds, isPlaying, vehiclePositions, setVehiclePositions, setFilteredVehicleCount } =
+  const { currentTimeSeconds, selectedDate, isPlaying, vehiclePositions, setVehiclePositions, setFilteredVehicleCount } =
     useTimetableStore()
+
+  // Calculate active service IDs for selected date
+  const activeServiceIds = useMemo(() => {
+    if (calendar.length === 0) return null // null means show all (no calendar filtering)
+
+    const dayOfWeek = selectedDate.getDay()
+    const dayFields = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+    const dateStr = `${selectedDate.getFullYear()}${String(selectedDate.getMonth() + 1).padStart(2, '0')}${String(selectedDate.getDate()).padStart(2, '0')}`
+
+    const activeIds = new Set<string>()
+    for (const cal of calendar) {
+      const inRange = dateStr >= cal.start_date && dateStr <= cal.end_date
+      const dayActive = cal[dayFields[dayOfWeek]] === 1
+      if (inRange && dayActive) {
+        activeIds.add(cal.service_id)
+      }
+    }
+
+    return activeIds
+  }, [calendar, selectedDate])
 
   // Get stop IDs that belong to selected routes
   const selectedStopIds = useMemo(() => {
@@ -163,7 +183,8 @@ export function Map() {
       const positions = getVehiclePositionsOptimized(
         trajectoryCache,
         timeIndex,
-        currentTimeSeconds
+        currentTimeSeconds,
+        activeServiceIds || undefined
       )
       setVehiclePositions(positions)
     } else if (stopTimes.length > 0 && trips.length > 0 && stops.length > 0) {
@@ -177,7 +198,13 @@ export function Map() {
       )
       setVehiclePositions(positions)
     }
-  }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, trajectoryCache, timeIndex, setVehiclePositions, isPlaying])
+  }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, trajectoryCache, timeIndex, setVehiclePositions, isPlaying, activeServiceIds])
+
+  // Keep activeServiceIds in a ref for animation loop access
+  const activeServiceIdsRef = useRef(activeServiceIds)
+  useEffect(() => {
+    activeServiceIdsRef.current = activeServiceIds
+  }, [activeServiceIds])
 
   // Animation loop for playback - uses requestAnimationFrame for smooth 60fps
   useEffect(() => {
@@ -203,7 +230,8 @@ export function Map() {
         const positions = getVehiclePositionsOptimized(
           gtfsState.trajectoryCache,
           gtfsState.timeIndex,
-          newTime
+          newTime,
+          activeServiceIdsRef.current || undefined
         )
         store.setVehiclePositions(positions)
       }
