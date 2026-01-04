@@ -176,7 +176,7 @@ export function Layout() {
               <div className="brand-title">GTFS Simulator</div>
               <div className="brand-subtitle">{routes.length} routes loaded</div>
             </div>
-            <button className="clear-data-header" onClick={clearData} title="Cerrar y cargar otro archivo">
+            <button className="clear-data-header" onClick={clearData} title="Close and load another file">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -249,11 +249,11 @@ export function Layout() {
                   <div className="route-card-metrics">
                     <div className="route-metric">
                       <span className="metric-value">{stats.tripCount}</span>
-                      <span className="metric-label">viajes</span>
+                      <span className="metric-label">trips</span>
                     </div>
                     <div className="route-metric">
                       <span className="metric-value">{stats.stopCount}</span>
-                      <span className="metric-label">paradas</span>
+                      <span className="metric-label">stops</span>
                     </div>
                     {stats.distanceKm > 0 && (
                       <div className="route-metric">
@@ -297,26 +297,26 @@ export function Layout() {
         <div className="floating-vehicles-chip">
           <span className="chip-dot" />
           <span className="chip-count">{filteredVehicleCount}</span>
-          <span className="chip-label">vehículos</span>
+          <span className="chip-label">vehicles</span>
         </div>
 
         {/* Floating Layers Control */}
         <div className="floating-layers">
           <div className="layers-dropdown">
-            <button className="layers-toggle" title="Capas del mapa">
+            <button className="layers-toggle" title="Map layers">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </button>
             <div className="layers-menu">
-              <div className="layers-menu-title">Capas del mapa</div>
+              <div className="layers-menu-title">Map layers</div>
               <label className="layer-checkbox">
                 <input
                   type="checkbox"
                   checked={layerVisibility.vehicles}
                   onChange={() => setLayerVisibility('vehicles', !layerVisibility.vehicles)}
                 />
-                <span className="checkbox-label">Vehículos</span>
+                <span className="checkbox-label">Vehicles</span>
               </label>
               <label className="layer-checkbox">
                 <input
@@ -324,7 +324,7 @@ export function Layout() {
                   checked={layerVisibility.shapes}
                   onChange={() => setLayerVisibility('shapes', !layerVisibility.shapes)}
                 />
-                <span className="checkbox-label">Rutas</span>
+                <span className="checkbox-label">Routes</span>
               </label>
               <label className="layer-checkbox">
                 <input
@@ -332,7 +332,7 @@ export function Layout() {
                   checked={layerVisibility.stops}
                   onChange={() => setLayerVisibility('stops', !layerVisibility.stops)}
                 />
-                <span className="checkbox-label">Paradas</span>
+                <span className="checkbox-label">Stops</span>
               </label>
             </div>
           </div>
@@ -405,10 +405,10 @@ export function Layout() {
               </svg>
               <span className="date-picker-text">
                 <span className="date-picker-weekday">
-                  {selectedDate.toLocaleDateString('es-ES', { weekday: 'short' })}
+                  {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
                 </span>
                 <span className="date-picker-date">
-                  {selectedDate.getDate()} {selectedDate.toLocaleDateString('es-ES', { month: 'short' })} {selectedDate.getFullYear()}
+                  {selectedDate.toLocaleDateString('en-US', { month: 'short' })} {selectedDate.getDate()}, {selectedDate.getFullYear()}
                 </span>
               </span>
               <svg className="date-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -421,7 +421,7 @@ export function Layout() {
               <div className="date-picker-controls">
                 {/* Year */}
                 <div className="date-control-group">
-                  <span className="date-control-label">Año</span>
+                  <span className="date-control-label">Year</span>
                   <div className="date-control-row">
                     <button
                       className="date-control-btn"
@@ -453,7 +453,7 @@ export function Layout() {
 
                 {/* Month */}
                 <div className="date-control-group">
-                  <span className="date-control-label">Mes</span>
+                  <span className="date-control-label">Month</span>
                   <div className="date-control-row">
                     <button
                       className="date-control-btn"
@@ -467,7 +467,7 @@ export function Layout() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                       </svg>
                     </button>
-                    <span className="date-control-value">{selectedDate.toLocaleDateString('es-ES', { month: 'short' })}</span>
+                    <span className="date-control-value">{selectedDate.toLocaleDateString('en-US', { month: 'short' })}</span>
                     <button
                       className="date-control-btn"
                       onClick={() => {
@@ -485,7 +485,7 @@ export function Layout() {
 
                 {/* Day */}
                 <div className="date-control-group">
-                  <span className="date-control-label">Día</span>
+                  <span className="date-control-label">Day</span>
                   <div className="date-control-row">
                     <button className="date-control-btn" onClick={prevDay}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -495,7 +495,7 @@ export function Layout() {
                     <span className="date-control-value date-control-day">
                       {selectedDate.getDate()}
                       <span className="date-control-weekday">
-                        {selectedDate.toLocaleDateString('es-ES', { weekday: 'short' })}
+                        {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
                       </span>
                     </span>
                     <button className="date-control-btn" onClick={nextDay}>
@@ -513,7 +513,7 @@ export function Layout() {
                   className="date-quick-btn"
                   onClick={() => setSelectedDate(new Date())}
                 >
-                  Hoy
+                  Today
                 </button>
                 {calendar.length > 0 && (() => {
                   const dates = calendar.map(c => c.start_date).sort()
@@ -529,7 +529,7 @@ export function Layout() {
                         className="date-quick-btn"
                         onClick={() => setSelectedDate(startDate)}
                       >
-                        Inicio GTFS
+                        GTFS Start
                       </button>
                     )
                   }
@@ -560,7 +560,7 @@ export function Layout() {
                 return (
                   <div className="date-picker-services">
                     <div className="services-header">
-                      <span className="services-title">Servicios activos</span>
+                      <span className="services-title">Active services</span>
                       <span className={`services-count ${activeServices.length > 0 ? 'active' : 'none'}`}>
                         {activeServices.length}/{calendar.length}
                       </span>
@@ -571,7 +571,7 @@ export function Layout() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span>Sin servicio en esta fecha</span>
+                        <span>No service on this date</span>
                       </div>
                     ) : (
                       <div className="services-list">
@@ -583,19 +583,19 @@ export function Layout() {
                                 <span className="service-item-dot" />
                                 <span className="service-item-name">{cal.service_id}</span>
                               </div>
-                              <span className="service-item-trips">{tripCount} viajes</span>
+                              <span className="service-item-trips">{tripCount} trips</span>
                             </div>
                           )
                         })}
                         {activeServices.length > 4 && (
-                          <div className="services-more">+{activeServices.length - 4} más</div>
+                          <div className="services-more">+{activeServices.length - 4} more</div>
                         )}
                       </div>
                     )}
 
                     {inactiveServices.length > 0 && activeServices.length > 0 && (
                       <div className="services-inactive">
-                        <span className="inactive-label">Inactivos hoy:</span>
+                        <span className="inactive-label">Inactive today:</span>
                         <span className="inactive-list">
                           {inactiveServices.slice(0, 3).map(s => s.service_id).join(', ')}
                           {inactiveServices.length > 3 && ` +${inactiveServices.length - 3}`}
@@ -611,9 +611,9 @@ export function Layout() {
               {/* Feed Summary */}
               <div className="date-picker-summary">
                 <div className="summary-row">
-                  <span>{routes.length} rutas</span>
+                  <span>{routes.length} routes</span>
                   <span>•</span>
-                  <span>{stops.length.toLocaleString()} paradas</span>
+                  <span>{stops.length.toLocaleString()} stops</span>
                 </div>
                 {calendar.length > 0 && (
                   <div className="summary-validity">
@@ -622,8 +622,8 @@ export function Layout() {
                       const endDates = calendar.map(c => c.end_date).sort()
                       const start = startDates[0]
                       const end = endDates[endDates.length - 1]
-                      const formatDate = (d: string) => `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 4)}`
-                      return start && end ? `Vigencia: ${formatDate(start)} - ${formatDate(end)}` : ''
+                      const formatDate = (d: string) => `${d.slice(4, 6)}/${d.slice(6, 8)}/${d.slice(0, 4)}`
+                      return start && end ? `Valid: ${formatDate(start)} - ${formatDate(end)}` : ''
                     })()}
                   </div>
                 )}
@@ -635,7 +635,7 @@ export function Layout() {
                   <div className="date-picker-selection">
                     <span className="selection-label">
                       <span className="selection-dot" />
-                      {selectedRouteIds.size} ruta{selectedRouteIds.size > 1 ? 's' : ''} seleccionada{selectedRouteIds.size > 1 ? 's' : ''}
+                      {selectedRouteIds.size} route{selectedRouteIds.size > 1 ? 's' : ''} selected
                     </span>
                   </div>
                 </>

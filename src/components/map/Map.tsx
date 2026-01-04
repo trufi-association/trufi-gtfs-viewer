@@ -7,7 +7,7 @@ import { useTimetableStore } from '../../store/timetableStore'
 import StopsLayer from './StopsLayer'
 import ShapesLayer from './ShapesLayer'
 import VehiclesLayer from './VehiclesLayer'
-import { getVehiclePositions } from '../../services/gtfs/vehicleInterpolator'
+import { getVehiclePositions, getVehiclePositionsOptimized } from '../../services/gtfs/vehicleInterpolator'
 import type { MapLayerMouseEvent } from 'maplibre-gl'
 import type { FeatureCollection, Point } from 'geojson'
 import type { StopProperties } from '../../services/gtfs/stopsToGeoJson'
@@ -33,7 +33,7 @@ export function Map() {
   const [mapLoaded, setMapLoaded] = useState(false)
   const hasFittedBounds = useRef(false)
 
-  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies } =
+  const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies, trajectoryCache, timeIndex } =
     useGtfsStore()
   const { layerVisibility, selectedRouteIds, selectedRouteTypes, setSelectedStop } =
     useUiStore()
@@ -154,9 +154,19 @@ export function Map() {
     }
   }, [bounds])
 
-  // Update vehicle positions when time changes
+  // Update vehicle positions when time changes (only when NOT playing)
+  // During playback, the animation loop handles updates directly
   useEffect(() => {
-    if (stopTimes.length > 0 && trips.length > 0 && stops.length > 0) {
+    if (isPlaying) return // Skip during playback - animation loop handles it
+
+    if (trajectoryCache && timeIndex) {
+      const positions = getVehiclePositionsOptimized(
+        trajectoryCache,
+        timeIndex,
+        currentTimeSeconds
+      )
+      setVehiclePositions(positions)
+    } else if (stopTimes.length > 0 && trips.length > 0 && stops.length > 0) {
       const positions = getVehiclePositions(
         stopTimes,
         trips,
@@ -167,23 +177,42 @@ export function Map() {
       )
       setVehiclePositions(positions)
     }
-  }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, setVehiclePositions])
+  }, [currentTimeSeconds, stopTimes, trips, routes, stops, frequencies, trajectoryCache, timeIndex, setVehiclePositions, isPlaying])
 
-  // Animation loop for playback - uses setInterval for consistent updates
+  // Animation loop for playback - uses requestAnimationFrame for smooth 60fps
   useEffect(() => {
     if (!isPlaying) return
 
-    const UPDATE_INTERVAL = 50 // 50ms = 20fps, good balance of smoothness and performance
+    let animationId: number
     let lastTime = performance.now()
 
-    const intervalId = setInterval(() => {
-      const now = performance.now()
+    const animate = (now: number) => {
       const delta = (now - lastTime) / 1000
       lastTime = now
-      useTimetableStore.getState().incrementTime(delta)
-    }, UPDATE_INTERVAL)
 
-    return () => clearInterval(intervalId)
+      // Get current state directly to avoid stale closures
+      const store = useTimetableStore.getState()
+      const newTime = store.currentTimeSeconds + delta * store.playbackSpeed
+
+      // Update time in store
+      store.setCurrentTime(newTime)
+
+      // Calculate positions directly here to avoid React re-render overhead
+      const gtfsState = useGtfsStore.getState()
+      if (gtfsState.trajectoryCache && gtfsState.timeIndex) {
+        const positions = getVehiclePositionsOptimized(
+          gtfsState.trajectoryCache,
+          gtfsState.timeIndex,
+          newTime
+        )
+        store.setVehiclePositions(positions)
+      }
+
+      animationId = requestAnimationFrame(animate)
+    }
+
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
   }, [isPlaying])
 
   // Handle click on map features

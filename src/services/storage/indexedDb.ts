@@ -1,3 +1,5 @@
+import JSZip from 'jszip'
+
 const DB_NAME = 'gtfs-viewer'
 const DB_VERSION = 2
 const STORE_NAME = 'gtfs-file'
@@ -44,6 +46,22 @@ export async function saveGtfsFile(file: File): Promise<void> {
       reject(transaction.error)
     }
   })
+}
+
+export async function saveGtfsFolder(files: File[]): Promise<void> {
+  const zip = new JSZip()
+
+  for (const file of files) {
+    const content = await file.arrayBuffer()
+    // Use just the filename, not the full path
+    const fileName = file.name
+    zip.file(fileName, content)
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  const zipFile = new File([zipBlob], 'gtfs-folder.zip', { type: 'application/zip' })
+
+  await saveGtfsFile(zipFile)
 }
 
 export async function loadGtfsFile(): Promise<File | null> {

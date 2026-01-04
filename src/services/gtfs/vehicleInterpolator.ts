@@ -1,4 +1,5 @@
-import type { GtfsStopTime, GtfsTrip, GtfsStop, GtfsRoute, GtfsFrequency, VehiclePosition } from '../../types/gtfs'
+import type { GtfsStopTime, GtfsTrip, GtfsStop, GtfsRoute, GtfsFrequency, VehiclePosition, TrajectoryCache, TimeIndexedVehicles } from '../../types/gtfs'
+import { interpolateOnTrajectory } from './shapeInterpolator'
 
 // Cached data structures to avoid recalculating on each frame
 let cachedTripData: {
@@ -303,6 +304,55 @@ export function getVehiclePositions(
             progress: interpolated.progress,
             color,
             headsign: trip?.trip_headsign,
+          })
+        }
+      }
+    }
+  }
+
+  return positions
+}
+
+// Optimized vehicle position calculation using pre-computed trajectories
+// Uses time-indexed buckets for O(1) lookup + binary search for segment interpolation
+export function getVehiclePositionsOptimized(
+  _cache: TrajectoryCache,
+  timeIndex: TimeIndexedVehicles,
+  currentTimeSeconds: number
+): VehiclePosition[] {
+  const positions: VehiclePosition[] = []
+
+  // Get relevant buckets (current and adjacent to handle boundary cases)
+  const currentBucket = Math.floor(currentTimeSeconds / timeIndex.bucketSize)
+  const relevantBuckets = [currentBucket - 1, currentBucket, currentBucket + 1]
+
+  // Collect candidates from relevant buckets
+  const seenInstances = new Set<string>()
+
+  for (const bucket of relevantBuckets) {
+    const instances = timeIndex.buckets.get(bucket)
+    if (!instances) continue
+
+    for (const instance of instances) {
+      // Skip if we've already processed this instance
+      if (seenInstances.has(instance.instanceId)) continue
+      seenInstances.add(instance.instanceId)
+
+      // Check if this instance is active at current time
+      if (currentTimeSeconds >= instance.startTime && currentTimeSeconds <= instance.endTime) {
+        const elapsedTime = currentTimeSeconds - instance.startTime
+        const result = interpolateOnTrajectory(instance.trajectory, elapsedTime)
+
+        if (result) {
+          positions.push({
+            tripId: instance.instanceId,
+            routeId: instance.routeId,
+            position: result.position,
+            bearing: result.bearing,
+            nextStopId: result.nextStopId,
+            progress: result.progress,
+            color: instance.color,
+            headsign: instance.headsign,
           })
         }
       }

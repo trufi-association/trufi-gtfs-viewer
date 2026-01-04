@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import type { FeatureCollection, Point, LineString } from 'geojson'
-import type { GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsFrequency, GtfsAgency } from '../types/gtfs'
+import type { GtfsStop, GtfsRoute, GtfsTrip, GtfsShape, GtfsStopTime, GtfsCalendar, GtfsFrequency, GtfsAgency, TrajectoryCache, TimeIndexedVehicles } from '../types/gtfs'
 import type { StopProperties } from '../services/gtfs/stopsToGeoJson'
 import type { ShapeProperties } from '../services/gtfs/shapesToGeoJson'
 import { stopsToGeoJson, calculateBounds } from '../services/gtfs/stopsToGeoJson'
 import { shapesToGeoJson } from '../services/gtfs/shapesToGeoJson'
 import { parseGtfsFile, type GtfsInput } from '../services/gtfs/parser'
-import { saveGtfsFile, loadGtfsFile, clearGtfsData } from '../services/storage/indexedDb'
+import { saveGtfsFile, saveGtfsFolder, loadGtfsFile, clearGtfsData } from '../services/storage/indexedDb'
+import { precomputeTrajectories, buildTimeIndex } from '../services/gtfs/trajectoryPrecomputer'
 
 interface GtfsState {
   // Raw parsed data
@@ -25,6 +26,10 @@ interface GtfsState {
 
   // Calculated bounds
   bounds: [[number, number], [number, number]] | null
+
+  // Simulation optimization cache
+  trajectoryCache: TrajectoryCache | null
+  timeIndex: TimeIndexedVehicles | null
 
   // Feed metadata
   feedStats: {
@@ -59,6 +64,8 @@ export const useGtfsStore = create<GtfsState>((set) => ({
   stopsGeoJson: null,
   shapesGeoJson: null,
   bounds: null,
+  trajectoryCache: null,
+  timeIndex: null,
   feedStats: null,
   isLoading: false,
   loadingProgress: 0,
@@ -73,9 +80,11 @@ export const useGtfsStore = create<GtfsState>((set) => ({
         set({ loadingProgress: progress, loadingMessage: message })
       })
 
-      // Save original file to IndexedDB (only for ZIP files, not folders)
-      if (!Array.isArray(input)) {
-        set({ loadingMessage: 'Saving to local storage...' })
+      // Save to IndexedDB (ZIP files or folders converted to ZIP)
+      set({ loadingMessage: 'Saving to local storage...' })
+      if (Array.isArray(input)) {
+        await saveGtfsFolder(input)
+      } else {
         await saveGtfsFile(input)
       }
 
@@ -83,6 +92,32 @@ export const useGtfsStore = create<GtfsState>((set) => ({
       const stopsGeoJson = stopsToGeoJson(data.stops, data.stopTimes)
       const shapesGeoJson = shapesToGeoJson(data.shapes, data.routes, data.trips)
       const bounds = calculateBounds(data.stops)
+
+      // Pre-compute trajectories for simulation optimization
+      set({ loadingMessage: 'Pre-calculando trayectorias...' })
+      const trajectoryCache = precomputeTrajectories(
+        data.shapes,
+        data.trips,
+        data.stopTimes,
+        data.stops,
+        (progress, message) => {
+          // Scale progress from 0-100 to 85-98
+          const scaledProgress = 85 + Math.floor(progress * 0.13)
+          set({ loadingProgress: scaledProgress, loadingMessage: message })
+        }
+      )
+
+      set({ loadingMessage: 'Construyendo índice temporal...' })
+      const timeIndex = buildTimeIndex(
+        trajectoryCache,
+        data.trips,
+        data.frequencies,
+        data.routes,
+        (progress, message) => {
+          const scaledProgress = 98 + Math.floor(progress * 0.02)
+          set({ loadingProgress: scaledProgress, loadingMessage: message })
+        }
+      )
 
       set({
         stops: data.stops,
@@ -96,6 +131,8 @@ export const useGtfsStore = create<GtfsState>((set) => ({
         stopsGeoJson,
         shapesGeoJson,
         bounds,
+        trajectoryCache,
+        timeIndex,
         feedStats: {
           stopCount: data.stops.length,
           routeCount: data.routes.length,
@@ -140,6 +177,31 @@ export const useGtfsStore = create<GtfsState>((set) => ({
       const shapesGeoJson = shapesToGeoJson(data.shapes, data.routes, data.trips)
       const bounds = calculateBounds(data.stops)
 
+      // Pre-compute trajectories for simulation optimization
+      set({ loadingMessage: 'Pre-calculando trayectorias...' })
+      const trajectoryCache = precomputeTrajectories(
+        data.shapes,
+        data.trips,
+        data.stopTimes,
+        data.stops,
+        (progress, message) => {
+          const scaledProgress = 85 + Math.floor(progress * 0.13)
+          set({ loadingProgress: scaledProgress, loadingMessage: message })
+        }
+      )
+
+      set({ loadingMessage: 'Construyendo índice temporal...' })
+      const timeIndex = buildTimeIndex(
+        trajectoryCache,
+        data.trips,
+        data.frequencies,
+        data.routes,
+        (progress, message) => {
+          const scaledProgress = 98 + Math.floor(progress * 0.02)
+          set({ loadingProgress: scaledProgress, loadingMessage: message })
+        }
+      )
+
       set({
         stops: data.stops,
         routes: data.routes,
@@ -152,6 +214,8 @@ export const useGtfsStore = create<GtfsState>((set) => ({
         stopsGeoJson,
         shapesGeoJson,
         bounds,
+        trajectoryCache,
+        timeIndex,
         feedStats: {
           stopCount: data.stops.length,
           routeCount: data.routes.length,
@@ -187,6 +251,8 @@ export const useGtfsStore = create<GtfsState>((set) => ({
       stopsGeoJson: null,
       shapesGeoJson: null,
       bounds: null,
+      trajectoryCache: null,
+      timeIndex: null,
       feedStats: null,
       error: null,
     })

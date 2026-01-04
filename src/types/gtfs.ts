@@ -150,3 +150,71 @@ export interface VehiclePosition {
   color: string
   headsign?: string
 }
+
+// ============================================
+// Simulation Optimization Types
+// ============================================
+
+// Punto del shape con distancia acumulada
+export interface ShapePoint {
+  lon: number
+  lat: number
+  distanceFromStart: number  // metros desde inicio del shape
+  bearing: number            // dirección hacia el siguiente punto
+}
+
+// Segmento entre dos paradas consecutivas
+export interface TripSegment {
+  fromStopId: string
+  toStopId: string
+  startTime: number          // tiempo desde inicio del trip (segundos)
+  endTime: number            // tiempo de llegada a siguiente parada
+  shapePoints: ShapePoint[]  // puntos del shape para este segmento
+  segmentDistance: number    // distancia de este segmento en metros
+  fromCoord: [number, number]  // fallback si no hay shape
+  toCoord: [number, number]
+}
+
+// Trayectoria pre-calculada para un trip
+export interface PrecomputedTrajectory {
+  tripId: string
+  shapeId: string | null
+  totalDistance: number      // longitud total en metros
+  totalDuration: number      // duración del trip en segundos
+  segments: TripSegment[]
+  segmentStartTimes: number[]  // para binary search O(log n)
+}
+
+// Instancia activa de un vehículo (para frequencies)
+export interface ActiveVehicleInstance {
+  tripId: string
+  instanceId: string         // tripId_instanceNumber
+  trajectory: PrecomputedTrajectory
+  startTime: number          // cuando empieza esta instancia
+  endTime: number            // cuando termina
+  routeId: string
+  color: string
+  headsign?: string
+}
+
+// Índice temporal para búsqueda rápida de vehículos activos
+export interface TimeIndexedVehicles {
+  buckets: Map<number, ActiveVehicleInstance[]>  // buckets de 5 minutos
+  bucketSize: number  // 300 segundos por defecto
+}
+
+// Cache de trayectorias pre-calculadas
+export interface TrajectoryCache {
+  trajectories: Map<string, PrecomputedTrajectory>
+  processedShapes: Map<string, ShapePoint[]>
+  stopCoords: Map<string, [number, number]>
+}
+
+// Resultado de interpolación
+export interface InterpolationResult {
+  position: [number, number]
+  bearing: number
+  nextStopId: string
+  progress: number           // 0-1 progreso total del trip
+  segmentProgress: number    // 0-1 progreso del segmento actual
+}
