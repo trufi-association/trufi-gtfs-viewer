@@ -42,7 +42,7 @@ const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="28" v
 
 const carDataUrl = `data:image/svg+xml;base64,${btoa(carSvg)}`
 
-const vehicleStyle: Omit<SymbolLayerSpecification, 'id' | 'source'> = {
+const getVehicleStyle = (visible: boolean): Omit<SymbolLayerSpecification, 'id' | 'source'> => ({
   type: 'symbol',
   layout: {
     'icon-image': 'car-icon',
@@ -51,8 +51,9 @@ const vehicleStyle: Omit<SymbolLayerSpecification, 'id' | 'source'> = {
     'icon-rotation-alignment': 'map',
     'icon-allow-overlap': true,
     'icon-ignore-placement': true,
+    visibility: visible ? 'visible' : 'none',
   },
-}
+})
 
 export function VehiclesLayer({ positions, visible = true }: VehiclesLayerProps) {
   const { current: map } = useMap()
@@ -84,29 +85,11 @@ export function VehiclesLayer({ positions, visible = true }: VehiclesLayerProps)
     }
   }, [map])
 
-  // Ensure vehicles layer is always on top
-  useEffect(() => {
-    if (!map) return
-
-    const moveToTop = () => {
-      if (map.getLayer('vehicles-points')) {
-        map.moveLayer('vehicles-points')
-      }
-    }
-
-    // Move to top after a short delay to ensure other layers are added
-    const timeoutId = setTimeout(moveToTop, 100)
-
-    return () => clearTimeout(timeoutId)
-  }, [map, positions])
-
-  if (!visible || positions.length === 0) return null
-
   const geoJson = vehiclesToGeoJson(positions)
 
   return (
     <Source id="vehicles" type="geojson" data={geoJson}>
-      <Layer id="vehicles-points" {...vehicleStyle} />
+      <Layer id="vehicles-points" {...getVehicleStyle(visible)} />
     </Source>
   )
 }

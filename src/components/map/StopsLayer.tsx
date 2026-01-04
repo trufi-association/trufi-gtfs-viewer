@@ -11,7 +11,7 @@ interface StopsLayerProps {
 }
 
 // All stops - small black circles, visible from zoom 14+
-const allStopsStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+const getAllStopsStyle = (visible: boolean): Omit<CircleLayerSpecification, 'id' | 'source'> => ({
   type: 'circle',
   minzoom: 14,
   paint: {
@@ -20,10 +20,13 @@ const allStopsStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 0.5,
   },
-}
+  layout: {
+    visibility: visible ? 'visible' : 'none',
+  },
+})
 
 // Origin stops - green circles (larger, overlaid)
-const originStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+const getOriginStopStyle = (visible: boolean): Omit<CircleLayerSpecification, 'id' | 'source'> => ({
   type: 'circle',
   paint: {
     'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 6, 16, 10],
@@ -31,10 +34,13 @@ const originStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 2,
   },
-}
+  layout: {
+    visibility: visible ? 'visible' : 'none',
+  },
+})
 
 // Destination stops - blue circles (larger, overlaid)
-const destinationStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
+const getDestinationStopStyle = (visible: boolean): Omit<CircleLayerSpecification, 'id' | 'source'> => ({
   type: 'circle',
   paint: {
     'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 6, 16, 10],
@@ -42,46 +48,45 @@ const destinationStopStyle: Omit<CircleLayerSpecification, 'id' | 'source'> = {
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 2,
   },
-}
+  layout: {
+    visibility: visible ? 'visible' : 'none',
+  },
+})
 
 export function StopsLayer({ data, visible = true, originStopIds, destinationStopIds }: StopsLayerProps) {
-  if (!visible || !data) return null
+  if (!data) return null
 
   // Create filtered GeoJSON for origin/destination markers
-  const originStops: FeatureCollection<Point, StopProperties> | null = originStopIds && originStopIds.size > 0
+  const originStops: FeatureCollection<Point, StopProperties> = originStopIds && originStopIds.size > 0
     ? {
         type: 'FeatureCollection',
         features: data.features.filter(f => originStopIds.has(f.properties.stop_id))
       }
-    : null
+    : { type: 'FeatureCollection', features: [] }
 
-  const destinationStops: FeatureCollection<Point, StopProperties> | null = destinationStopIds && destinationStopIds.size > 0
+  const destinationStops: FeatureCollection<Point, StopProperties> = destinationStopIds && destinationStopIds.size > 0
     ? {
         type: 'FeatureCollection',
         features: data.features.filter(f => destinationStopIds.has(f.properties.stop_id))
       }
-    : null
+    : { type: 'FeatureCollection', features: [] }
 
   return (
     <>
-      {/* All stops - red base layer */}
+      {/* All stops - base layer */}
       <Source id="stops" type="geojson" data={data}>
-        <Layer id="stops-unclustered" {...allStopsStyle} />
+        <Layer id="stops-unclustered" {...getAllStopsStyle(visible)} />
       </Source>
 
       {/* Origin stops - green overlay */}
-      {originStops && originStops.features.length > 0 && (
-        <Source id="stops-origin-source" type="geojson" data={originStops}>
-          <Layer id="stops-origin" {...originStopStyle} />
-        </Source>
-      )}
+      <Source id="stops-origin-source" type="geojson" data={originStops}>
+        <Layer id="stops-origin" {...getOriginStopStyle(visible)} />
+      </Source>
 
       {/* Destination stops - blue overlay */}
-      {destinationStops && destinationStops.features.length > 0 && (
-        <Source id="stops-destination-source" type="geojson" data={destinationStops}>
-          <Layer id="stops-destination" {...destinationStopStyle} />
-        </Source>
-      )}
+      <Source id="stops-destination-source" type="geojson" data={destinationStops}>
+        <Layer id="stops-destination" {...getDestinationStopStyle(visible)} />
+      </Source>
     </>
   )
 }

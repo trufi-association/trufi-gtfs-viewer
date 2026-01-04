@@ -10,7 +10,7 @@ interface ShapesLayerProps {
   selectedRouteTypes?: Set<number>
 }
 
-const shapesStyle: Omit<LineLayerSpecification, 'id' | 'source'> = {
+const getShapesStyle = (visible: boolean): Omit<LineLayerSpecification, 'id' | 'source'> => ({
   type: 'line',
   paint: {
     'line-color': ['get', 'color'],
@@ -20,8 +20,9 @@ const shapesStyle: Omit<LineLayerSpecification, 'id' | 'source'> = {
   layout: {
     'line-cap': 'round',
     'line-join': 'round',
+    visibility: visible ? 'visible' : 'none',
   },
-}
+})
 
 export function ShapesLayer({
   data,
@@ -29,7 +30,7 @@ export function ShapesLayer({
   selectedRouteIds,
   selectedRouteTypes,
 }: ShapesLayerProps) {
-  if (!visible || !data) return null
+  if (!data) return null
 
   // Filter data if there are selected routes or route types
   let filteredData = data
@@ -58,7 +59,7 @@ export function ShapesLayer({
 
   return (
     <Source id="shapes" type="geojson" data={filteredData}>
-      <Layer id="shapes-lines" {...shapesStyle} />
+      <Layer id="shapes-lines" {...getShapesStyle(visible)} />
     </Source>
   )
 }
