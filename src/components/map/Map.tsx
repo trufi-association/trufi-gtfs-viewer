@@ -7,6 +7,7 @@ import { useTimetableStore } from '../../store/timetableStore'
 import StopsLayer from './StopsLayer'
 import ShapesLayer from './ShapesLayer'
 import VehiclesLayer from './VehiclesLayer'
+import StopArrowsLayer from './StopArrowsLayer'
 import { getVehiclePositions, getVehiclePositionsOptimized } from '../../services/gtfs/vehicleInterpolator'
 import type { MapLayerMouseEvent } from 'maplibre-gl'
 import type { FeatureCollection, Point } from 'geojson'
@@ -35,7 +36,7 @@ export function Map() {
 
   const { stopsGeoJson, shapesGeoJson, bounds, stops, routes, trips, stopTimes, frequencies, trajectoryCache, timeIndex, calendar } =
     useGtfsStore()
-  const { layerVisibility, selectedRouteIds, selectedRouteTypes, setSelectedStop } =
+  const { layerVisibility, selectedRouteIds, selectedRouteTypes, selectedTripIds, setSelectedStop } =
     useUiStore()
   const { currentTimeSeconds, selectedDate, isPlaying, vehiclePositions, setVehiclePositions, setFilteredVehicleCount } =
     useTimetableStore()
@@ -60,18 +61,42 @@ export function Map() {
     return activeIds
   }, [calendar, selectedDate])
 
-  // Get stop IDs that belong to selected routes
+  // Get stop IDs that belong to selected routes/trips
   const selectedStopIds = useMemo(() => {
     if (selectedRouteIds.size === 0) return null // null means show all
 
     // Get trip IDs for selected routes
-    const selectedTripIds = new Set(
-      trips
-        .filter((t) => selectedRouteIds.has(t.route_id))
-        .map((t) => t.trip_id)
-    )
+    let tripIdsToUse: Set<string>
+
+    if (selectedTripIds.size > 0) {
+      // If specific trips are selected, use only those
+      tripIdsToUse = selectedTripIds
+    } else {
+      // Otherwise use all trips from selected routes
+      tripIdsToUse = new Set(
+        trips
+          .filter((t) => selectedRouteIds.has(t.route_id))
+          .map((t) => t.trip_id)
+      )
+    }
 
     // Get stop IDs from stop_times for those trips
+    const stopIds = new Set<string>()
+    for (const st of stopTimes) {
+      if (tripIdsToUse.has(st.trip_id)) {
+        stopIds.add(st.stop_id)
+      }
+    }
+
+    return stopIds
+  }, [selectedRouteIds, selectedTripIds, trips, stopTimes])
+
+  // Filter stops GeoJSON based on selected trips
+  const filteredStopsGeoJson = useMemo((): FeatureCollection<Point, StopProperties> | null => {
+    if (!stopsGeoJson) return null
+    if (selectedTripIds.size === 0) return null // Show no stops if no trips selected
+
+    // Get stop IDs from stop_times for selected trips
     const stopIds = new Set<string>()
     for (const st of stopTimes) {
       if (selectedTripIds.has(st.trip_id)) {
@@ -79,23 +104,15 @@ export function Map() {
       }
     }
 
-    return stopIds
-  }, [selectedRouteIds, trips, stopTimes])
-
-  // Filter stops GeoJSON based on selected routes
-  const filteredStopsGeoJson = useMemo((): FeatureCollection<Point, StopProperties> | null => {
-    if (!stopsGeoJson) return null
-    if (!selectedStopIds) return stopsGeoJson // Show all if no route selected
-
     return {
       ...stopsGeoJson,
       features: stopsGeoJson.features.filter((f) =>
-        selectedStopIds.has(f.properties.stop_id)
+        stopIds.has(f.properties.stop_id)
       ),
     }
-  }, [stopsGeoJson, selectedStopIds])
+  }, [stopsGeoJson, selectedTripIds, stopTimes])
 
-  // Calculate origin and destination stop IDs for selected routes
+  // Calculate origin and destination stop IDs for selected routes/trips
   const { originStopIds, destinationStopIds } = useMemo(() => {
     const origins = new Set<string>()
     const destinations = new Set<string>()
@@ -104,17 +121,23 @@ export function Map() {
       return { originStopIds: origins, destinationStopIds: destinations }
     }
 
-    // Get trip IDs for selected routes
-    const selectedTripIds = new Set(
-      trips
-        .filter((t) => selectedRouteIds.has(t.route_id))
-        .map((t) => t.trip_id)
-    )
+    // Get trip IDs - use selected trips if any, otherwise all trips from selected routes
+    let tripIdsToUse: Set<string>
+
+    if (selectedTripIds.size > 0) {
+      tripIdsToUse = selectedTripIds
+    } else {
+      tripIdsToUse = new Set(
+        trips
+          .filter((t) => selectedRouteIds.has(t.route_id))
+          .map((t) => t.trip_id)
+      )
+    }
 
     // Group stop times by trip
     const tripStopTimesMap: Record<string, typeof stopTimes> = {}
     for (const st of stopTimes) {
-      if (selectedTripIds.has(st.trip_id)) {
+      if (tripIdsToUse.has(st.trip_id)) {
         if (!tripStopTimesMap[st.trip_id]) {
           tripStopTimesMap[st.trip_id] = []
         }
@@ -131,13 +154,23 @@ export function Map() {
     }
 
     return { originStopIds: origins, destinationStopIds: destinations }
-  }, [selectedRouteIds, trips, stopTimes])
+  }, [selectedRouteIds, selectedTripIds, trips, stopTimes])
 
-  // Filter vehicle positions based on selected routes
+  // Filter vehicle positions based on selected trips (primary filter)
   const filteredVehiclePositions = useMemo(() => {
-    if (selectedRouteIds.size === 0) return vehiclePositions // Show all if no route selected
-    return vehiclePositions.filter((v) => selectedRouteIds.has(v.routeId))
-  }, [vehiclePositions, selectedRouteIds])
+    // If no trips selected, show no vehicles (trips are the primary filter)
+    if (selectedTripIds.size === 0) {
+      return []
+    }
+
+    // Filter by selected trips
+    // Vehicle tripIds may have instance suffix (e.g., "trip_0", "trip_1" for frequencies)
+    // Extract base tripId by removing the last underscore and number suffix
+    return vehiclePositions.filter((v) => {
+      const baseTripId = v.tripId.replace(/_\d+$/, '')
+      return selectedTripIds.has(v.tripId) || selectedTripIds.has(baseTripId)
+    })
+  }, [vehiclePositions, selectedTripIds])
 
   // Update filtered vehicle count in store
   useEffect(() => {
@@ -297,8 +330,8 @@ export function Map() {
         <ShapesLayer
           data={shapesGeoJson}
           visible={layerVisibility.shapes}
-          selectedRouteIds={selectedRouteIds}
-          selectedRouteTypes={selectedRouteTypes}
+          selectedTripIds={selectedTripIds}
+          trips={trips}
         />
       )}
 
@@ -315,6 +348,18 @@ export function Map() {
         positions={filteredVehiclePositions}
         visible={layerVisibility.vehicles}
       />
+
+      {stopTimes.length > 0 && (
+        <StopArrowsLayer
+          stopTimes={stopTimes}
+          trips={trips}
+          stops={stops}
+          routes={routes}
+          visible={layerVisibility.stopArrows}
+          selectedRouteIds={selectedRouteIds}
+          selectedTripIds={selectedTripIds}
+        />
+      )}
 
       {popupInfo && (
         <Popup

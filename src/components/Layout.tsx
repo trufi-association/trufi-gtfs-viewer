@@ -3,10 +3,12 @@ import Map from './map/Map'
 import { useGtfsStore } from '../store/gtfsStore'
 import { useTimetableStore } from '../store/timetableStore'
 import { useUiStore } from '../store/uiStore'
+import { useSettingsStore } from '../store/settingsStore'
 import { formatTime, parseGtfsTime } from '../services/gtfs/vehicleInterpolator'
 import { ROUTE_TYPES } from '../types/gtfs'
 import type { GtfsRoute, GtfsTrip, GtfsStopTime, GtfsShape, GtfsStop, GtfsCalendar, GtfsFrequency } from '../types/gtfs'
 import DropZone from './upload/DropZone'
+import SettingsPanel from './settings/SettingsPanel'
 
 // Haversine distance formula
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -24,6 +26,7 @@ export function Layout() {
   const [qualityModalOpen, setQualityModalOpen] = useState(false)
 
   const { feedStats, routes, trips, stopTimes, shapes, stops, calendar, frequencies, clearData } = useGtfsStore()
+  const { toggleSettingsPanel } = useSettingsStore()
   const {
     currentTimeSeconds,
     selectedDate,
@@ -40,10 +43,15 @@ export function Layout() {
   const {
     selectedRouteIds,
     selectedRouteTypes,
+    selectedTripIds,
+    expandedRouteId,
     toggleRouteSelection,
     toggleRouteType,
     clearRouteSelection,
     clearRouteTypeFilter,
+    toggleTripSelection,
+    setSelectedTrips,
+    setExpandedRoute,
     searchQuery,
     setSearchQuery,
     layerVisibility,
@@ -217,71 +225,194 @@ export function Layout() {
         <div className="routes-list">
           <div className="routes-count">
             <span>{filteredRoutes.length} of {routes.length} routes</span>
-            {selectedRouteIds.size > 0 && (
-              <button className="clear-selection" onClick={clearRouteSelection}>
-                Clear ({selectedRouteIds.size})
+            <div className="selection-buttons">
+              <button
+                className="selection-btn"
+                onClick={() => {
+                  // Select all filtered routes and all their trips
+                  const allRouteIds = new Set(filteredRoutes.map(r => r.route_id))
+                  const allTripIds = new Set(
+                    trips.filter(t => allRouteIds.has(t.route_id)).map(t => t.trip_id)
+                  )
+                  // Update routes
+                  for (const route of filteredRoutes) {
+                    if (!selectedRouteIds.has(route.route_id)) {
+                      toggleRouteSelection(route.route_id)
+                    }
+                  }
+                  // Update trips
+                  setSelectedTrips(new Set([...selectedTripIds, ...allTripIds]))
+                }}
+              >
+                All
               </button>
-            )}
+              <button
+                className="selection-btn"
+                onClick={clearRouteSelection}
+              >
+                None
+              </button>
+            </div>
           </div>
 
-          {filteredRoutes.map((route) => {
+          {filteredRoutes.map((route, index) => {
             const colorStr = String(route.route_color ?? '')
             const color = colorStr ? (colorStr.startsWith('#') ? colorStr : `#${colorStr}`) : '#3b82f6'
             const isSelected = selectedRouteIds.has(route.route_id)
+            const isExpanded = expandedRouteId === route.route_id
             const stats = routeStats[route.route_id]
+            const routeTrips = trips.filter(t => t.route_id === route.route_id)
 
             return (
-              <button
-                key={route.route_id}
-                onClick={() => toggleRouteSelection(route.route_id)}
-                className={`route-card ${isSelected ? 'selected' : ''}`}
-              >
-                <div className="route-card-header">
-                  <div className="route-card-id" style={{ backgroundColor: color }}>
-                    {route.route_short_name || route.route_id}
-                  </div>
-                  <span className="route-card-type">{ROUTE_TYPES[route.route_type] || `Type ${route.route_type}`}</span>
-                </div>
-                {route.route_long_name && (
-                  <div className="route-card-name">{route.route_long_name}</div>
-                )}
-                {stats && stats.tripCount > 0 && (
-                  <div className="route-card-metrics">
-                    <div className="route-metric">
-                      <span className="metric-value">{stats.tripCount}</span>
-                      <span className="metric-label">trips</span>
+              <div key={`${route.route_id}-${index}`} className={`route-card-wrapper ${isExpanded ? 'expanded' : ''}`}>
+                <button
+                  onClick={() => {
+                    if (isSelected) {
+                      // Deselecting: remove route and remove its trips from selection
+                      toggleRouteSelection(route.route_id)
+                      const routeTripIds = new Set(routeTrips.map(t => t.trip_id))
+                      const newSelectedTrips = new Set(
+                        [...selectedTripIds].filter(id => !routeTripIds.has(id))
+                      )
+                      setSelectedTrips(newSelectedTrips)
+                      // Close expanded view if this route was expanded
+                      if (isExpanded) {
+                        setExpandedRoute(null)
+                      }
+                    } else {
+                      // Selecting: add route and select all its trips
+                      toggleRouteSelection(route.route_id)
+                      const routeTripIds = new Set(routeTrips.map(t => t.trip_id))
+                      // Merge with existing selected trips
+                      const newSelectedTrips = new Set([...selectedTripIds, ...routeTripIds])
+                      setSelectedTrips(newSelectedTrips)
+                    }
+                  }}
+                  className={`route-card ${isSelected ? 'selected' : ''}`}
+                >
+                  <div className="route-card-header">
+                    <div className="route-card-id" style={{ backgroundColor: color }}>
+                      {route.route_short_name || route.route_id}
                     </div>
-                    <div className="route-metric">
-                      <span className="metric-value">{stats.stopCount}</span>
-                      <span className="metric-label">stops</span>
+                    <span className="route-card-type">{ROUTE_TYPES[route.route_type] || `Type ${route.route_type}`}</span>
+                  </div>
+                  {route.route_long_name && (
+                    <div className="route-card-name">{route.route_long_name}</div>
+                  )}
+                  {stats && stats.tripCount > 0 && (
+                    <div className="route-card-metrics">
+                      <div className="route-metric">
+                        <span className="metric-value">{stats.tripCount}</span>
+                        <span className="metric-label">trips</span>
+                      </div>
+                      <div className="route-metric">
+                        <span className="metric-value">{stats.stopCount}</span>
+                        <span className="metric-label">stops</span>
+                      </div>
+                      {stats.distanceKm > 0 && (
+                        <div className="route-metric">
+                          <span className="metric-value">{stats.distanceKm.toFixed(1)}</span>
+                          <span className="metric-label">km</span>
+                        </div>
+                      )}
+                      {stats.durationMinutes > 0 && (
+                        <div className="route-metric">
+                          <span className="metric-value">{Math.round(stats.durationMinutes)}</span>
+                          <span className="metric-label">min</span>
+                        </div>
+                      )}
+                      {stats.speedKmh > 0 && (
+                        <div className="route-metric highlight">
+                          <span className="metric-value">{Math.round(stats.speedKmh)}</span>
+                          <span className="metric-label">km/h</span>
+                        </div>
+                      )}
+                      {stats.headwayMinutes && (
+                        <div className="route-metric frequency">
+                          <span className="metric-value">c/{Math.round(stats.headwayMinutes)}</span>
+                          <span className="metric-label">min</span>
+                        </div>
+                      )}
                     </div>
-                    {stats.distanceKm > 0 && (
-                      <div className="route-metric">
-                        <span className="metric-value">{stats.distanceKm.toFixed(1)}</span>
-                        <span className="metric-label">km</span>
+                  )}
+                </button>
+
+                {/* Expand/Collapse trips button */}
+                {isSelected && routeTrips.length > 1 && (
+                  <button
+                    className="route-expand-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!isExpanded) {
+                        // When expanding, select all trips by default
+                        const allTripIds = new Set(routeTrips.map(t => t.trip_id))
+                        setSelectedTrips(allTripIds)
+                      }
+                      setExpandedRoute(isExpanded ? null : route.route_id)
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      className={`expand-icon ${isExpanded ? 'expanded' : ''}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span>{isExpanded ? 'Hide' : 'Show'} {routeTrips.length} trips</span>
+                  </button>
+                )}
+
+                {/* Trip list */}
+                {isSelected && isExpanded && routeTrips.length > 0 && (
+                  <div className="route-trips-list">
+                    <div className="trips-list-header">
+                      <span>Select trips</span>
+                      <div className="selection-buttons">
+                        <button
+                          className="selection-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const allTripIds = new Set(routeTrips.map(t => t.trip_id))
+                            setSelectedTrips(new Set([...selectedTripIds, ...allTripIds]))
+                          }}
+                        >
+                          All
+                        </button>
+                        <button
+                          className="selection-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const routeTripIds = new Set(routeTrips.map(t => t.trip_id))
+                            const newSelectedTrips = new Set(
+                              [...selectedTripIds].filter(id => !routeTripIds.has(id))
+                            )
+                            setSelectedTrips(newSelectedTrips)
+                          }}
+                        >
+                          None
+                        </button>
                       </div>
-                    )}
-                    {stats.durationMinutes > 0 && (
-                      <div className="route-metric">
-                        <span className="metric-value">{Math.round(stats.durationMinutes)}</span>
-                        <span className="metric-label">min</span>
-                      </div>
-                    )}
-                    {stats.speedKmh > 0 && (
-                      <div className="route-metric highlight">
-                        <span className="metric-value">{Math.round(stats.speedKmh)}</span>
-                        <span className="metric-label">km/h</span>
-                      </div>
-                    )}
-                    {stats.headwayMinutes && (
-                      <div className="route-metric frequency">
-                        <span className="metric-value">c/{Math.round(stats.headwayMinutes)}</span>
-                        <span className="metric-label">min</span>
-                      </div>
-                    )}
+                    </div>
+                    {routeTrips.map((trip) => {
+                      const isTripSelected = selectedTripIds.has(trip.trip_id)
+                      return (
+                        <div
+                          key={trip.trip_id}
+                          className={`trip-item ${isTripSelected ? 'selected' : ''}`}
+                          onClick={() => toggleTripSelection(trip.trip_id)}
+                        >
+                          <span className="trip-item-id">{trip.trip_id}</span>
+                          {trip.trip_headsign && (
+                            <span className="trip-item-headsign">{trip.trip_headsign}</span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
-              </button>
+              </div>
             )
           })}
         </div>
@@ -300,8 +431,8 @@ export function Layout() {
           <span className="chip-label">vehicles</span>
         </div>
 
-        {/* Floating Layers Control */}
-        <div className="floating-layers">
+        {/* Floating Controls: Layers + Settings */}
+        <div className="floating-controls-group">
           <div className="layers-dropdown">
             <button className="layers-toggle" title="Map layers">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -334,8 +465,24 @@ export function Layout() {
                 />
                 <span className="checkbox-label">Stops</span>
               </label>
+              <label className="layer-checkbox">
+                <input
+                  type="checkbox"
+                  checked={layerVisibility.stopArrows}
+                  onChange={() => setLayerVisibility('stopArrows', !layerVisibility.stopArrows)}
+                />
+                <span className="checkbox-label">Stop Lines</span>
+              </label>
             </div>
           </div>
+
+          {/* Settings Button */}
+          <button className="settings-btn-inline" onClick={toggleSettingsPanel} title="Marker settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -659,6 +806,9 @@ export function Layout() {
           onClose={() => setQualityModalOpen(false)}
         />
       )}
+
+      {/* Settings Panel */}
+      <SettingsPanel />
     </div>
   )
 }

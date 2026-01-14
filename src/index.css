@@ -289,19 +289,26 @@ body {
   height: 20px;
 }
 
-.clear-selection {
+.selection-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.selection-btn {
   background: none;
   border: none;
   color: var(--primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  padding: 0;
-  line-height: 20px;
+  padding: 2px 6px;
+  line-height: 16px;
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
-.clear-selection:hover {
-  text-decoration: underline;
+.selection-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
 }
 
 /* Route Cards */
@@ -564,10 +571,7 @@ body {
 
 /* Floating Layers Control */
 .floating-layers {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 10;
+  position: relative;
 }
 
 /* Floating Vehicles Chip */
@@ -2923,4 +2927,457 @@ body {
 .command-center, .control-panel, .floating-header,
 .sidebar-container {
   display: none !important;
+}
+
+/* ==========================================
+   Settings Panel
+   ========================================== */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.settings-panel {
+  width: 90%;
+  max-width: 480px;
+  max-height: 85vh;
+  background: var(--bg-panel);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.25s ease;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.settings-close {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-card);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.settings-close:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.settings-section {
+  margin-bottom: 28px;
+}
+
+.settings-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.settings-row {
+  margin-bottom: 16px;
+}
+
+.settings-row:last-child {
+  margin-bottom: 0;
+}
+
+.settings-row > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+/* Icon Selector */
+.icon-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.icon-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.icon-option.selected {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text);
+}
+
+.icon-option.selected .icon-preview {
+  color: var(--primary-dark);
+}
+
+.icon-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.icon-option.selected .icon-label {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+/* Settings Slider */
+.settings-slider {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-card);
+  border-radius: var(--radius-full);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--primary-glow);
+  transition: transform 0.15s ease;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--primary);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--primary-glow);
+}
+
+/* Settings Color Picker */
+.settings-color-picker {
+  width: 48px;
+  height: 32px;
+  padding: 2px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.settings-color-picker:hover {
+  border-color: var(--primary);
+}
+
+.settings-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.settings-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.settings-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+/* Settings Footer */
+.settings-footer {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+  margin-top: 20px;
+}
+
+.settings-footer .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Floating Controls Group (Layers + Settings) */
+.floating-controls-group {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* Settings Button Inline (next to layers) */
+.settings-btn-inline {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow);
+  transition: all 0.15s ease;
+}
+
+.settings-btn-inline:hover {
+  background: var(--bg-card);
+  color: var(--primary);
+}
+
+.settings-btn-inline svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* General Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-light);
+  color: var(--text);
+}
+
+/* ==========================================
+   Route Card Wrapper & Trip Selection
+   ========================================== */
+.route-card-wrapper {
+  margin-bottom: 10px;
+}
+
+.route-card-wrapper .route-card {
+  margin-bottom: 0;
+  border-radius: var(--radius-md);
+}
+
+.route-card-wrapper.expanded .route-card {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Expand/Collapse Button */
+.route-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+  border-top: none;
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.route-expand-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.route-expand-btn .expand-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.route-expand-btn .expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* Trip List */
+.route-trips-list {
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.trips-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trips-list-header > span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Trip Item */
+.trip-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trip-item:last-child {
+  margin-bottom: 0;
+}
+
+.trip-item:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+}
+
+.trip-item.selected {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.trip-item-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-item-headsign {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-item.selected .trip-item-id {
+  color: var(--primary-dark);
+}
+
+.trip-item.selected .trip-item-headsign {
+  color: var(--text);
+}
+
+/* Scrollbar for trip list */
+.route-trips-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.route-trips-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.route-trips-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.route-trips-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-light);
 }
